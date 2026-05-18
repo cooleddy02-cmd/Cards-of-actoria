@@ -1,0 +1,25 @@
+uploads = []
+
+[[generated]]
+id = "Ktz0whyaFOheX5JxnyCH7"
+uri = "file://attached_assets/base_cards_enhanced.png"
+type = "image"
+title = "base cards enhanced sheet"
+
+[[generated]]
+id = "tNwOvctrohjyyekpLLARc"
+uri = "file://attached_assets/evo_cards_enhanced.png"
+type = "image"
+title = "evo cards enhanced sheet"
+
+[[outputs]]
+id = "yeTHiL5AB13mNyXPqaK9X"
+uri = "file://attached_assets/base_cards_enhanced.png"
+type = "image"
+title = "Base Cards — Enhanced"
+
+[[outputs]]
+id = "1jfPspAFWf6C9N_W6NRNM"
+uri = "file://attached_assets/evo_cards_enhanced.png"
+type = "image"
+title = "EVO Cards — Enhanced"
