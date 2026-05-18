@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Card Reference</title>
+  <style>
+    body {
+      background: #1a1a1a;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      padding: 40px;
+    }
+
+    h1 {
+      color: #ff3333;
+      font-size: 2rem;
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .section-line {
+      height: 3px;
+      background: #ff3333;
+      margin-bottom: 32px;
+      border: none;
+    }
+
+    .evo-line {
+      background: #9b30ff;
+    }
+
+    h2.evo {
+      color: #9b30ff;
+    }
+
+    .card-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 60px;
+    }
+
+    .card {
+      background: #2e2e2e;
+      border: 2px solid #444;
+      border-radius: 10px;
+      width: 130px;
+      padding: 16px 12px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: #ff3333;
+    }
+
+    .card.evo:hover {
+      border-color: #9b30ff;
+    }
+
+    .card-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #ff3333;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+    }
+
+    .card.evo .card-icon {
+      background: #9b30ff;
+      border-radius: 8px;
+    }
+
+    .card-name {
+      font-size: 0.75rem;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
+      color: #fff;
+    }
+
+    .card-stats {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .stat-label {
+      font-size: 0.6rem;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .stat-value {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #ff3333;
+    }
+
+    .card.evo .stat-value {
+      color: #9b30ff;
+    }
+
+    .sacrifice-label {
+      font-size: 0.6rem;
+      color: #aaa;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    .sacrifice-val {
+      font-size: 0.7rem;
+      color: #ffaa00;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Base Cards</h1>
+  <hr class="section-line">
+  <div class="card-grid" id="base-cards"></div>
+
+  <h1 class="evo" style="color:#9b30ff">EVO Cards</h1>
+  <hr class="section-line evo-line">
+  <div class="card-grid" id="evo-cards"></div>
+
+  <script>
+    const baseCards = [
+      { name: "Fisher",         atk: 3, def: 5, icon: "🎣" },
+      { name: "Clock",          atk: 2, def: 4, icon: "🕐" },
+      { name: "Clocksmilk",    atk: 4, def: 3, icon: "⏱️" },
+      { name: "Mysteriousash", atk: 5, def: 6, icon: "💀" },
+      { name: "Atlas",          atk: 4, def: 5, icon: "🌍" },
+      { name: "Greed",          atk: 6, def: 4, icon: "💰" },
+      { name: "Blackhole",     atk: 7, def: 3, icon: "🌑" },
+      { name: "BlackholeAtlas",atk: 6, def: 6, icon: "🌌" },
+      { name: "Greedatlas",    atk: 5, def: 5, icon: "⚡" },
+      { name: "Breaker",        atk: 4, def: 6, icon: "🔨" },
+      { name: "Mirror",         atk: 2, def: 7, icon: "🪞" },
+      { name: "Milktoken",     atk: 1, def: 2, icon: "🥛" },
+    ];
+
+    const evoCards = [
+      { name: "Shadowwing",    atk: 8,  def: 7,  icon: "🦇", sacrifice: "Fisher + Blackhole" },
+      { name: "Mechspider",    atk: 7,  def: 8,  icon: "🕷️", sacrifice: "Breaker + Clock" },
+      { name: "Voidplanet",    atk: 6,  def: 9,  icon: "🪐", sacrifice: "Atlas + Blackhole" },
+      { name: "Phoenixfire",   atk: 10, def: 5,  icon: "🔥", sacrifice: "Greed + Mysteriousash" },
+      { name: "Titanatlas",    atk: 9,  def: 8,  icon: "🅰️", sacrifice: "Atlas + Greedatlas" },
+      { name: "Crimsonbeast",  atk: 8,  def: 6,  icon: "🦊", sacrifice: "Greed + Fisher" },
+      { name: "Sacredcross",   atk: 7,  def: 9,  icon: "✝️", sacrifice: "Mirror + Breaker" },
+      { name: "Darknebula",    atk: 11, def: 4,  icon: "🌠", sacrifice: "Blackhole + BlackholeAtlas" },
+      { name: "Voidmark",      atk: 9,  def: 7,  icon: "❌", sacrifice: "Mysteriousash + Greedatlas" },
+    ];
+
+    function renderCards(cards, containerId, isEvo) {
+      const container = document.getElementById(containerId);
+      cards.forEach(card => {
+        const el = document.createElement('div');
+        el.className = 'card' + (isEvo ? ' evo' : '');
+        el.innerHTML = `
+          <div class="card-icon">${card.icon}</div>
+          <div class="card-name">${card.name}</div>
+          <div class="card-stats">
+            <div class="stat">
+              <span class="stat-label">ATK</span>
+              <span class="stat-value">${card.atk}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">DEF</span>
+              <span class="stat-value">${card.def}</span>
+            </div>
+          </div>
+          ${card.sacrifice ? `
+            <div class="sacrifice-label">Sacrifice</div>
+            <div class="sacrifice-val">${card.sacrifice}</div>
+          ` : ''}
+        `;
+        container.appendChild(el);
+      });
+    }
+
+    renderCards(baseCards, 'base-cards', false);
+    renderCards(evoCards, 'evo-cards', true);
+  </script>
+
+</body>
+</html>

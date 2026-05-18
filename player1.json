@@ -1,27 +1,27 @@
 [
   {
-    "name": "BlackholeAtlas",
+    "name": "Greed",
     "atk": 6,
-    "def": 6
+    "def": 4
   },
   {
-    "name": "Fisher",
-    "atk": 3,
+    "name": "Atlas",
+    "atk": 4,
     "def": 5
   },
   {
-    "name": "Clocksmilk",
-    "atk": 4,
+    "name": "Greed",
+    "atk": 6,
+    "def": 4
+  },
+  {
+    "name": "Blackhole",
+    "atk": 7,
     "def": 3
   },
   {
-    "name": "Mysteriousash",
-    "atk": 5,
-    "def": 6
-  },
-  {
-    "name": "Greedatlas",
-    "atk": 5,
-    "def": 5
+    "name": "Mirror",
+    "atk": 2,
+    "def": 7
   }
 ]
