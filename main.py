@@ -129,6 +129,7 @@ def main():
     p2_hp = 20
     turn = 1
     current = 1
+    first_turn = {1: True, 2: True}
 
     while p1_hp > 0 and p2_hp > 0:
         print(f"\n{'=' * 40}")
@@ -145,9 +146,13 @@ def main():
             opp_field = p1_field
             name, opp_name = p2_name, p1_name
 
-        drawn = draw_card()
-        hand.append(drawn)
-        print(f"\n  {name} drew: {drawn['name']} | ATK:{drawn['atk']} DEF:{drawn['def']}")
+        if first_turn[current]:
+            print(f"\n  {name}'s first turn — no draw this round.")
+            first_turn[current] = False
+        else:
+            drawn = draw_card()
+            hand.append(drawn)
+            print(f"\n  {name} drew: {drawn['name']} | ATK:{drawn['atk']} DEF:{drawn['def']}")
 
         reset_attacks(field)
 
