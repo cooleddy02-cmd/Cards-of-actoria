@@ -1,72 +1,27 @@
 [
-  [
-    "Breaker",
-    "blackhole",
-    "atlas",
-    "Fisher",
-    "blackholeAtlas",
-    "Mysteriousash",
-    "clocksmilk",
-    "clock",
-    "Milktoken",
-    "greedatlas",
-    "Mirror",
-    "greed"
-  ],
-  [
-    "atlas",
-    "clocksmilk",
-    "greedatlas",
-    "Fisher",
-    "clock",
-    "greed",
-    "Mysteriousash",
-    "Milktoken",
-    "Breaker",
-    "Mirror",
-    "blackhole",
-    "blackholeAtlas"
-  ],
-  [
-    "atlas",
-    "Milktoken",
-    "greed",
-    "clock",
-    "blackhole",
-    "blackholeAtlas",
-    "Mysteriousash",
-    "Fisher",
-    "clocksmilk",
-    "greedatlas",
-    "Mirror",
-    "Breaker"
-  ],
-  [
-    "atlas",
-    "Mirror",
-    "clocksmilk",
-    "blackhole",
-    "blackholeAtlas",
-    "clock",
-    "Mysteriousash",
-    "Fisher",
-    "Breaker",
-    "greedatlas",
-    "Milktoken",
-    "greed"
-  ],
-  [
-    "Mysteriousash",
-    "blackhole",
-    "blackholeAtlas",
-    "clocksmilk",
-    "Milktoken",
-    "greed",
-    "Breaker",
-    "Mirror",
-    "greedatlas",
-    "Fisher",
-    "atlas",
-    "clock"
-  ]
+  {
+    "name": "BlackholeAtlas",
+    "atk": 6,
+    "def": 6
+  },
+  {
+    "name": "Fisher",
+    "atk": 3,
+    "def": 5
+  },
+  {
+    "name": "Clocksmilk",
+    "atk": 4,
+    "def": 3
+  },
+  {
+    "name": "Mysteriousash",
+    "atk": 5,
+    "def": 6
+  },
+  {
+    "name": "Greedatlas",
+    "atk": 5,
+    "def": 5
+  }
 ]

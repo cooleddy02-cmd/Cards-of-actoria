@@ -39,7 +39,7 @@ def play_phase(name, hand, field):
         show_hand(hand)
         show_field(field, name)
         print(f"\n  {name}: Play a card ({cards_played}/2 played this turn, {spaces_left} field space left)")
-        print("  Enter card number to play, or 's' to stop playing:")
+        print("  Enter card number to play, or 's' to skip (you can play 0-2 cards):")
         choice = input("  > ").strip().lower()
 
         if choice == 's':

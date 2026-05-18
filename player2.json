@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Greed",
+    "atk": 6,
+    "def": 4
+  },
+  {
+    "name": "Fisher",
+    "atk": 3,
+    "def": 5
+  },
+  {
+    "name": "Greedatlas",
+    "atk": 5,
+    "def": 5
+  },
+  {
+    "name": "Blackhole",
+    "atk": 7,
+    "def": 3
+  },
+  {
+    "name": "Atlas",
+    "atk": 4,
+    "def": 5
+  }
+]
