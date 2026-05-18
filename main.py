@@ -1,4 +1,5 @@
 import json
+import random
 from cards import deal_hand, draw_card
 
 def save_hands(p1_hand, p2_hand):
@@ -119,6 +120,16 @@ def main():
 
     print(f"\n  Welcome {p1_name} and {p2_name}!")
 
+    input("\n  Press Enter to flip a coin and decide who goes first...")
+    flip = random.choice(["heads", "tails"])
+    print(f"  It's {flip.upper()}!")
+    if flip == "heads":
+        current = 1
+        print(f"  {p1_name} goes first!")
+    else:
+        current = 2
+        print(f"  {p2_name} goes first!")
+
     p1_hand = deal_hand(5)
     p2_hand = deal_hand(5)
     save_hands(p1_hand, p2_hand)
@@ -128,7 +139,6 @@ def main():
     p1_hp = 20
     p2_hp = 20
     turn = 1
-    current = 1
     first_turn = {1: True, 2: True}
 
     while p1_hp > 0 and p2_hp > 0:
