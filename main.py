@@ -1,5 +1,4 @@
 import json
-import random
 from cards import deal_hand, draw_card
 
 def save_hands(p1_hand, p2_hand):
@@ -10,7 +9,7 @@ def save_hands(p1_hand, p2_hand):
 
 def show_card(card, index=None):
     prefix = f"[{index}] " if index is not None else ""
-    return f"{prefix}{card['name']} | ATK:{card['atk']} DEF:{card['def']} HP:{card['hp']}"
+    return f"{prefix}{card['name']} | ATK:{card['atk']} DEF:{card['def']}"
 
 def show_field(field, label):
     print(f"\n  {label}'s field:")
@@ -73,9 +72,9 @@ def attack_phase(name, field, opp_name, opp_field, opp_hp):
         print(f"\n  {show_card(card)} is attacking.")
 
         if opp_field:
-            print(f"  Enter opponent card number to attack, or 's' to skip this card:")
+            print("  Enter opponent card number to attack, or 's' to skip this card:")
         else:
-            print(f"  Opponent field is empty — hit Enter to attack directly or 's' to skip:")
+            print("  Opponent field is empty — press Enter to attack directly or 's' to skip:")
 
         choice = input("  > ").strip().lower()
 
@@ -89,10 +88,9 @@ def attack_phase(name, field, opp_name, opp_field, opp_hp):
             idx = int(choice)
             if 0 <= idx < len(opp_field):
                 target = opp_field[idx]
-                damage = max(0, card['atk'] - target['def'])
-                target['hp'] -= damage
-                print(f"  {card['name']} hits {target['name']} for {damage} damage! {target['name']} HP: {target['hp']}")
-                if target['hp'] <= 0:
+                target['def'] -= card['atk']
+                print(f"  {card['name']} hits {target['name']} for {card['atk']} damage! {target['name']} DEF remaining: {target['def']}")
+                if target['def'] <= 0:
                     print(f"  {target['name']} is destroyed!")
                     opp_field.pop(idx)
             else:
@@ -116,6 +114,11 @@ def main():
     print("        CARD GAME — LOCAL 2 PLAYER")
     print("=" * 40)
 
+    p1_name = input("\n  Player 1, enter your name: ").strip() or "Player 1"
+    p2_name = input("  Player 2, enter your name: ").strip() or "Player 2"
+
+    print(f"\n  Welcome {p1_name} and {p2_name}!")
+
     p1_hand = deal_hand(5)
     p2_hand = deal_hand(5)
     save_hands(p1_hand, p2_hand)
@@ -129,22 +132,22 @@ def main():
 
     while p1_hp > 0 and p2_hp > 0:
         print(f"\n{'=' * 40}")
-        print(f"  Turn {turn} — Player {current}'s turn")
-        print(f"  Player 1 HP: {p1_hp}  |  Player 2 HP: {p2_hp}")
+        print(f"  Turn {turn} — {p1_name if current == 1 else p2_name}'s turn")
+        print(f"  {p1_name} HP: {p1_hp}  |  {p2_name} HP: {p2_hp}")
         print(f"{'=' * 40}")
 
         if current == 1:
             hand, field = p1_hand, p1_field
             opp_field = p2_field
-            name, opp_name = "Player 1", "Player 2"
+            name, opp_name = p1_name, p2_name
         else:
             hand, field = p2_hand, p2_field
             opp_field = p1_field
-            name, opp_name = "Player 2", "Player 1"
+            name, opp_name = p2_name, p1_name
 
         drawn = draw_card()
         hand.append(drawn)
-        print(f"\n  {name} drew: {drawn['name']}")
+        print(f"\n  {name} drew: {drawn['name']} | ATK:{drawn['atk']} DEF:{drawn['def']}")
 
         reset_attacks(field)
 
@@ -162,12 +165,12 @@ def main():
 
         if p2_hp <= 0:
             print(f"\n{'=' * 40}")
-            print("  Player 1 wins!")
+            print(f"  {p1_name} wins!")
             print(f"{'=' * 40}")
             break
         if p1_hp <= 0:
             print(f"\n{'=' * 40}")
-            print("  Player 2 wins!")
+            print(f"  {p2_name} wins!")
             print(f"{'=' * 40}")
             break
 
