@@ -2,8 +2,8 @@ import copy
 import random
 
 CARDLIST = [
-    {"name": "Fisher",         "atk": 3, "def": 5},
-    {"name": "Clock",          "atk": 2, "def": 4},
+    {"name": "Fisher",         "atk": 0, "def": 3},
+    {"name": "Clock",          "atk": 2, "def": 1},
     {"name": "Clocksmilk",     "atk": 4, "def": 3},
     {"name": "Mysteriousash",  "atk": 5, "def": 6},
     {"name": "Atlas",          "atk": 4, "def": 5},
