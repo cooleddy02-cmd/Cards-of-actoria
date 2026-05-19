@@ -3,8 +3,8 @@ import random
 from cards import deal_hand, draw_card
 
 def save_hands(p1_hand, p2_hand):
-    with open("player1.json", 'w') as f:i'
-    json.dump(p1_hand, f, indent=2)
+    with open("player1.json", 'w') as f:
+     json.dump(p1_hand, f, indent=2)
     with open("player2.json", 'w') as f:
         json.dump(p2_hand, f, indent=2)
 
