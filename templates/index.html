@@ -733,7 +733,7 @@ function renderOppField(field, phase, isMyTurn) {
   const el=document.getElementById('opp-field'); el.innerHTML='';
   field.forEach((card,i) => {
     const canTarget = isMyTurn && phase==='attack' && selectedAttacker!==null;
-    const isAbTarget = abilityMode && abilityMode.target_pool==='opp';
+    const isAbTarget = abilityMode && (abilityMode.target_pool==='opp' || abilityMode.target_pool==='all');
     const div=document.createElement('div');
     div.className='card-slot opp-card'+
       (canTarget||isAbTarget?' targetable':'')+
@@ -749,7 +749,7 @@ function renderYourField(field, phase, isMyTurn) {
   field.forEach((card,i) => {
     const canSel=isMyTurn && phase==='attack' && !card.attacked;
     const isSel=selectedAttacker===i;
-    const isAbTarget=abilityMode && abilityMode.target_pool==='your_field';
+    const isAbTarget=abilityMode && (abilityMode.target_pool==='your_field' || abilityMode.target_pool==='all');
     const div=document.createElement('div');
     div.className='card-slot'+(isSel?' selected':'')+(card.attacked?' attacked':'')+
       (card.frozen?' frozen':'')+(card.guard_remaining>0?' guarded':'');
@@ -846,7 +846,7 @@ function startAbility(id,card,fishType) {
   document.getElementById('ability-panel').classList.remove('show');
   abilityMode={ability_id:id,card_uid:card.uid,fish_type:fishType||null};
   const targetMap={
-    circus_bounce:'your_field',apple_buff:'all',sword_buff:'all',
+    circus_bounce:'your_field',apple_buff:'your_field',sword_buff:'your_field',
     milk_drink:'your_field',core_dark_star:'opp',
     fisher_catch:fishType==='light'?'all':'opp',undying_donut:'your_field',
   };
