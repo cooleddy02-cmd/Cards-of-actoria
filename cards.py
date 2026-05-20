@@ -84,6 +84,11 @@ CARDLIST = [
     {"name":"Blackhole",    "atk":7,"def":3, "specials":[]},
     {"name":"Milktoken",    "atk":1,"def":1,"no_draw":True, "specials":[
         {"id":"no_draw_flag","name":"Special Only","desc":"Cannot be drawn normally."}]},
+    {"name":"Golem",        "atk":0,"def":5, "specials":[
+        {"id":"golem_regen","name":"Construction","desc":"Each turn: gains +5 DEF (stops after flip)."},
+        {"id":"golem_flip","name":"Flip","desc":"After 4 turns: ATK becomes current DEF, DEF resets to 1."},
+        {"id":"golem_immune_friendly","name":"Inert","desc":"Cannot be buffed by cards on your own side."},
+        {"id":"golem_banish","name":"Banish","desc":"When destroyed, banished — no revive and no death effects."}]},
 ]
 
 SPECIAL_CARDS = [

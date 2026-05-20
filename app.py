@@ -122,6 +122,11 @@ def destroy_card(room, room_code, owner_index, field_index,
     if not bypass_guard and card.get('guard_remaining', 0) > 0:
         return False
 
+    if _has(card, 'golem_banish'):
+        player['field'].pop(field_index)
+        _check_win(room, players)
+        return True
+
     if not bypass_phoenix and _has(card, 'phoenix_revive') and not card.get('revived'):
         base = next((c for c in SPECIAL_CARDS if c['name'] == 'Phoenix'), None)
         card['def']     = base['def'] if base else 6
@@ -202,13 +207,16 @@ def process_turn_start(room, room_code, active_index):
             greed_decay_done = True
             msgs.append(f"💀 Greed Decay: all cards -1 DEF!")
 
-        if _has(card, 'undying_donut'):
-            eligible = [c for c in active['field']
-                        if c['uid'] != card['uid'] and c.get('donuts', 0) < 2]
-            if eligible:
-                t = eligible[0]; t['atk'] += 1; t['def'] += 1
-                t['donuts'] = t.get('donuts', 0) + 1
-                msgs.append(f"🍩 {t['name']} gets a donut!")
+        if _has(card, 'golem_regen') and not card.get('flipped'):
+            card['def'] += 5
+            msgs.append(f"🪨 {card['name']} constructs! DEF→{card['def']}")
+
+        if _has(card, 'golem_flip') and not card.get('flipped') and tof >= 4:
+            old_def = card['def']
+            card['atk'] = old_def
+            card['def'] = 1
+            card['flipped'] = True
+            msgs.append(f"🪨 {card['name']} flips! ATK→{card['atk']} DEF→1")
 
         if _has(card, 'sun_aoe') and not sun_done:
             for ec in opp['field']:
@@ -886,6 +894,8 @@ def on_use_ability(data):
         t_pi,t_fi,t_card = _find_by_uid(players, target_uid)
         if t_card is None: _,_,t_card = _find_in_hand(players, target_uid)
         if t_card is None: return
+        if _has(t_card, 'golem_immune_friendly') and t_pi == pi:
+            emit('error_msg', {'msg': 'Golem is immune to friendly effects.'}); return
         if ability_id == 'apple_buff':
             if t_card['name'] == 'Undying':
                 t_card['atk']+=2; t_card['def']+=2; t_card['lethal_block']=True
@@ -955,11 +965,32 @@ def on_use_ability(data):
         t_pi,_,t_card = _find_by_uid(players, target_uid)
         if t_card is None: return
         if fish_type=='light':
+            if _has(t_card, 'golem_immune_friendly') and t_pi == pi:
+                emit('error_msg', {'msg': 'Golem is immune to friendly effects.'}); return
             t_card['def']+=2; room['message']=f"🌟 Light Fish: {t_card['name']} +2 DEF!"
         else:
             if t_pi==pi: emit('error_msg',{'msg':'Dark Fish targets enemy cards.'}); return
             t_card['atk']=max(0,t_card['atk']-2); t_card['dark_fish_turns']=3
             room['message']=f"🌑 Dark Fish: {t_card['name']} -2 ATK for 3 turns!"
+        broadcast_state(room_code)
+
+    elif ability_id == 'undying_donut':
+        _,_,uc = _find_by_uid(players, card_uid)
+        if uc is None or not _has(uc, 'undying_donut'): return
+        if uc.get('frozen'): emit('error_msg', {'msg': 'Frozen.'}); return
+        if uc.get('donut_used_turn') == room['turn_count']:
+            emit('error_msg', {'msg': 'Donut: once per turn.'}); return
+        t_pi, _, t_card = _find_by_uid(players, target_uid)
+        if t_card is None or t_card['uid'] == uc['uid']: return
+        if t_pi != pi: emit('error_msg', {'msg': 'Own cards only.'}); return
+        if _has(t_card, 'golem_immune_friendly'):
+            emit('error_msg', {'msg': 'Golem is immune to friendly effects.'}); return
+        if t_card.get('donuts', 0) >= 2:
+            emit('error_msg', {'msg': 'Max 2 donuts per card.'}); return
+        t_card['atk'] += 1; t_card['def'] += 1
+        t_card['donuts'] = t_card.get('donuts', 0) + 1
+        uc['donut_used_turn'] = room['turn_count']
+        room['message'] = f"🍩 {t_card['name']} +1/+1! ({t_card['donuts']}/2 donuts)"
         broadcast_state(room_code)
 
     elif ability_id == 'core_dark_star':
