@@ -3,7 +3,7 @@ modules = ["python-3.10", "nodejs-20"]
 
 [nix]
 channel = "stable-23_05"
-packages = ["iana-etc"]
+packages = ["iana-etc", "zip"]
 
 [unitTest]
 language = "python3"

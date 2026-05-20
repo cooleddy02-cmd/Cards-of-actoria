@@ -1,0 +1,15 @@
+{
+  "cy": {
+    "pw_hash": "a320480f534776bddb5cdb54b1e93d210a3c7d199e80a23c1b2178497b184c76",
+    "gems": 189999925,
+    "owned_decks": [
+      "basic",
+      "brawler",
+      "guardian",
+      "mystic",
+      "chaos"
+    ],
+    "wins": 0,
+    "losses": 0
+  }
+}
