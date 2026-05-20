@@ -1,0 +1,191 @@
+Circus:
+DMG: 2
+DEF: 2
+Special: Once per 2 turns can choose to put one card on the field back into the hand does not work if the card can’t be drawn into the hand normally (does not, not work on the enemy cards).
+Star:
+DMG: 0
+DEF: 0
+Special: Every turn rerolls its stats 20% chance to nothing, 40% chance to gain 6 def, 40% chance to gain 6 dmg
+Love:
+DMG: 0
+DEF: 4
+Special: If this card instantly is destroyed player heals +4 hp can go above max hp
+Diamond:
+DMG: 4
+DEF: 0
+Special: If this card instantly destroys a card this card gains +1 dmg and +1 def
+Health:
+DMG: 0
+DEF: 2
+Special: Every 2 turns heals player by 4 health
+Bolt:
+DMG: 2
+DEF: 0
+Special: Ignores DEF when attacking cards [this means it deals its damage to the player and the card]
+Equal:
+DMG: 1
+DEF: 1
+Special: If destroyed within 4 turns of being played, both players take 4 damage 
+Sun:
+DMG: 0
+DEF: 0
+Special: Deals 1 damage to all enemy cards
+Side:
+DMG: 3
+DEF: 3
+Special: Attacks once all enemy cards. Cannot deal damage to the enemy player. When destroyed, deal 4 damage to your own player
+Hate:
+DMG: 5
+DEF: 2
+Special: Also deals its damage to your player when it attacks 
+Guard:
+DMG: 0
+DEF: 3
+Special: Cannot take damage or be destroyed for its first 2 turns on the field
+apple
+DMG: 1
+DEF: 1
+Special: 
+1 - This card can be sacrificed from the hand or field to give a card +2 DEF +1 DMG.
+2 - If this card is used on Undying, Undying gains +2 DMG +2 DEF and Undying can survive a lethal attack [lethal attack block does not stack]
+Clock’s Milk
+DMG: 0
+DEF: 4
+Special: 
+1 - Milk Token Summon: After 1 turn of this card of being summoned every turn you can choose to summon a Milk Token [The Milk Tokens can be used in sacrifices].
+2 - Milk Drink: You can destroy a Milk Token to heal 2 hp [Milk Drink can only be used if Clock’s Milk is still alive Milk Tokens can’t use Milk Drink by themselves]
+Milk Token
+DMG: 1
+DEF: 1
+1 - This card cannot be drawn (normally) into your hand. 
+Greed
+DMG: 0
+DEF: 4
+Special: 
+1 - Every time it's your turn and this card is on the field draw +1 card [basically you draw 2 cards instead of 1] (does not stack with more Greed cards).
+2 - Every turn all of your cards lose 1 defense and can go into the negatives can’t go below -5 negative defense.
+3 - When this card is destroyed owner takes 4 damage
+4 - Atlas summon: you can summon the Atlas card but losing 2 hp (This effect can only be used once per turn).
+
+
+Atlas
+DMG: 0
+DEF: 0
+Special: 
+1 - This card cannot be drawn (normally) into your hand.
+2 - This card after 4 turns of being summoned can be combined with Greed or Black hole card
+3 - Can’t be revived
+
+v1-8
+DMG: 0
+DEF: -1
+Special: When it is summoned on the field or revived it’s dmg gets rerolled 0 to 8
+
+Sword
+DMG: 3
+DEF: 2
+Special: 
+1 - This card can be sacrificed from the hand or field to give a card +2 DMG.
+2 - this card can’t be sacrificed to summon other cards but the Trio-Sword.
+
+
+Duraza
+DMG: 2x2
+DEF: 4
+Special:
+1 - Can’t be revived
+2 - This card can’t be sacrificed
+3 - Can’t be hit more then 1 time every turn
+4 - Def can’t be lowered by special abilitys
+
+Mysterious Ash
+DMG: 0
+DEF: 1
+Special: Event: When this card is destroyed within 5 turns of it being summoned onto the field it summons the Phoenix.
+
+Wrath
+DMG: 2 [max 6]
+DEF: 3
+Special:
+1 - Rage: gains +1 DMG each turn.
+2 - Direct attack: can attack the player directly
+3 - This card can’t be sacrificed
+4 - Can’t be hit by AoE attacks
+5 - Can’t be revived
+
+Cancel Block
+DMG: 1
+DEF: 3
+Block: 2 [max 3]
+Special: 
+2 - Block recharge: Gains +1 block every 4 turns 
+BLOCK
+DMG: 0
+DEF: 2
+Block: 1
+Special:
+1 - This card can be placed on a card on your side of the field it takes all the damage the card that in there would have taken.
+
+Unknown:
+DMG: 1
+DEF: 3
+Special: 
+1 - Cannot be affected by AoE damage.
+2 - After it is summoned in 3 turns, gains the DMG and DEF of the enemy card currently opposite in the same column.
+
+Rewind
+DMG: 0
+DEF: 0
+Special: 
+1 - Quick effect: You can use this effect during your opponent’s turn. If you do, this card is destroyed and it becomes your turn. You take 3 damage, cannot draw cards, and cannot deal damage this turn but it counts as a new turn (This effect can only be used once per 2 turns).
+2 - On play: Revive the last friendly card that died in this column in its original position, then destroy this card. The revived card gains its original defense +2 DEF. After 3 turns, destroy it. Its “on destroy” effects do not activate (This effect can only be used once per turn).
+
+Undying
+DMG: 0
+DEF: -1
+Special: Undying can give other cards a donut every (self) turn giving them +1 dmg and +1 def until that card is destroyed can’t give itself the donut max 2 donuts per card
+
+Fisher 
+DMG: 0 
+DEF: 3 
+Special: 
+1 - Abyssal Pull: Once per turn flip a coin. Heads: Gain 1 Light Fish Tails: Gain 1 Dark Fish.
+2 - Abyss Portal: You can store up to 3 Fish. 
+3 - Abyss Catch: You may consume 1 Fish to apply an effect: Light Fish: Target card gains +2 DEF Dark Fish: Target enemy card gets −2 DMG (for 3 turn) 
+4 - Catch Share: You may give 1 of your Fish to another card or self card. [only one dark fish applies into the same card and two light fish into the same card]
+
+Clock
+DMG: 1
+DEF: 1
+Special: 
+1 - Quick effect: When an enemy card declares an attack or summons a card, you may discard this card, canceling that attack or summon. (if sacrifice summon, sacrifice don't revive, This effect can only be used once per turn)
+2 - Freeze: When this card attacks a card, that card cannot use effects until the end of your next turn.
+
+Mirror 
+DMG: 1
+DEF: 2
+Special: 
+1 - When this card is attacked, it will both receive all afflicted damage, and reflect all the damage back to the attacking card (exact amount it was hit with) even if damage exceeds the defense of the card, it won't damage the player but only the card, destroying the attacker’s card that was hit by it. [bypass block, Mirror can’t reflect AoE attacks it just gets destroyed just like any other card
+
+Breaker
+DMG: 0
+DEF: 4
+Block: 1
+Special: When this card is destroyed all of the enemies cards with block have their block removed and can’t gain anymore block and the enemy player takes 1 damage for each card that had their block removed 
+
+Core Stars
+DMG: 0
+DEF: 5
+Special: 
+1 - Every 2 turns the player can choose to palace down 1 dark star on one of the opponents cards making that card lose 1 def each turn for each dark star on it
+2 - Max dark stars 4 when a card with dark star goes down to 0 def it is destroyed
+3 - This card can’t be sacrifist and can’t be revived 
+4 - When a card is destroyed all of the dark stars on that card are removed
+Phoenix 
+DMG: 1
+DEF: 6
+Special: 
+1 - This card cannot be drawn (normally) into your hand. 
+2 - When its destroyed, it comes back to life again one time at full defense.
+3 - When this card attacks a card, it gives it the burn effect, losing 1 defense every (self) turn for 3 turns. [cannot stack but can keep timer at 3 turns]
+
