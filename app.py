@@ -229,7 +229,7 @@ def process_turn_start(room, room_code, active_index):
         i = 0
         while i < len(players[pi]['field']):
             c = players[pi]['field'][i]
-            if c['def'] <= 0 and c.get('guard_remaining', 0) == 0:
+            if c['def'] < 0 and c.get('guard_remaining', 0) == 0:
                 if not destroy_card(room, room_code, pi, i): i += 1
             else:
                 i += 1
@@ -300,11 +300,11 @@ def _exec_attack(room, room_code, pi, ai, ti):
     if _has(tgt, 'mirror_reflect') and tgt.get('guard_remaining', 0) == 0:
         tgt['def'] -= dmg; atk['def'] -= dmg
         msgs.append(f"🪞 Mirror reflects {dmg} back!")
-        if atk['def'] <= 0:
+        if atk['def'] < 0:
             idx = apl['field'].index(atk)
             destroy_card(room, room_code, pi, idx, bypass_guard=True)
             msgs.append(f"{atk['name']} destroyed by reflection!")
-        if tgt['def'] <= 0:
+        if tgt['def'] < 0:
             destroy_card(room, room_code, 1 - pi, ti)
         atk['attacked'] = True
         room['message'] = ' | '.join(msgs); room['phase'] = 'attack'
@@ -338,7 +338,7 @@ def _exec_attack(room, room_code, pi, ai, ti):
         apl['hp'] -= dmg; msgs.append(f"Bloodlust: own player -{dmg}!")
 
     # Check target death
-    if tgt['def'] <= 0 and tgt.get('guard_remaining', 0) == 0:
+    if tgt['def'] < 0 and tgt.get('guard_remaining', 0) == 0:
         excess = abs(tgt['def'])
         destroyed = destroy_card(room, room_code, 1 - pi, ti)
         if destroyed:
@@ -370,7 +370,7 @@ def _check_deaths(room, room_code, pi):
     i = 0
     while i < len(players[pi]['field']):
         c = players[pi]['field'][i]
-        if c['def'] <= 0 and c.get('guard_remaining', 0) == 0:
+        if c['def'] < 0 and c.get('guard_remaining', 0) == 0:
             if not destroy_card(room, room_code, pi, i): i += 1
         else:
             i += 1
