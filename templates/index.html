@@ -6,163 +6,338 @@
   <title>Card Game</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #111; color: #fff; font-family: 'Segoe UI', sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0d0d0d;color:#fff;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center}
 
-    .screen { display: none; width: 100%; max-width: 480px; padding: 24px; }
-    .screen.active { display: flex; flex-direction: column; gap: 16px; }
-    #game-screen { max-width: 100%; height: 100vh; padding: 10px; display: none; flex-direction: column; gap: 6px; overflow: hidden; }
-    #game-screen.active { display: flex; }
+    /* ── SCREENS ── */
+    .screen{display:none;width:100%;max-width:460px;padding:24px;flex-direction:column;gap:14px}
+    .screen.active{display:flex}
+    #game-screen{max-width:100%;height:100vh;padding:10px;gap:6px;overflow:hidden}
 
-    h1 { font-size: 2rem; color: #ff3333; letter-spacing: 2px; text-transform: uppercase; text-align: center; }
-    input { background: #222; border: 2px solid #444; border-radius: 8px; color: #fff; padding: 12px 16px; font-size: 1rem; width: 100%; outline: none; }
-    input:focus { border-color: #ff3333; }
-    button { background: #ff3333; border: none; border-radius: 8px; color: #fff; padding: 12px 20px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: background 0.15s; }
-    button:hover { background: #cc0000; }
-    button:disabled { opacity: 0.4; cursor: default; }
-    button.sec { background: #333; } button.sec:hover { background: #444; }
-    button.blue { background: #1a66ff; } button.blue:hover { background: #0044cc; }
-    button.gold { background: #aa6600; } button.gold:hover { background: #884400; }
-    .error { color: #ff6666; font-size: .9rem; text-align: center; min-height: 20px; }
-    .info  { color: #aaa; font-size: .9rem; text-align: center; }
-    .room-code-display { background: #222; border: 2px solid #ff3333; border-radius: 8px; padding: 20px; text-align: center; }
-    .room-code-display span { display: block; font-size: 2.5rem; font-weight: bold; color: #ff3333; letter-spacing: 6px; }
+    /* ── TYPE ── */
+    h1{font-size:2rem;color:#ff3333;letter-spacing:3px;text-transform:uppercase;text-align:center}
+    h2{font-size:1.3rem;color:#fff;margin-bottom:4px}
+    .sub{color:#666;font-size:.85rem;text-align:center}
+    .err{color:#ff5555;font-size:.85rem;text-align:center;min-height:18px}
 
-    /* ── GAME ── */
-    .player-bar { display: flex; justify-content: space-between; align-items: center; background: #1e1e1e; border-radius: 8px; padding: 6px 12px; font-size: .85rem; }
-    .player-bar .pname { font-weight: bold; }
-    .player-bar .hp { color: #ff3333; font-weight: bold; }
+    /* ── INPUTS ── */
+    input{background:#1a1a1a;border:2px solid #333;border-radius:8px;color:#fff;padding:11px 14px;font-size:.95rem;width:100%;outline:none}
+    input:focus{border-color:#ff3333}
 
-    .field-label { font-size: .65rem; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
-    .field { display: flex; gap: 6px; flex-wrap: wrap; min-height: 100px; background: #161616; border-radius: 8px; padding: 6px; border: 1px solid #2a2a2a; }
+    /* ── BUTTONS ── */
+    button{background:#ff3333;border:none;border-radius:8px;color:#fff;padding:12px 18px;font-size:.95rem;font-weight:bold;cursor:pointer;transition:background .15s;letter-spacing:.5px}
+    button:hover{background:#cc0000}
+    button:disabled{opacity:.4;cursor:default}
+    .btn-sec{background:#222} .btn-sec:hover{background:#333}
+    .btn-blue{background:#1a55cc} .btn-blue:hover{background:#1144aa}
+    .btn-gold{background:#996600} .btn-gold:hover{background:#774400}
+    .btn-green{background:#1a8844} .btn-green:hover{background:#116633}
+    .btn-sm{padding:7px 14px;font-size:.8rem}
+    .btn-wide{width:100%}
+    .btn-row{display:flex;gap:10px}
+    .btn-row button{flex:1}
 
-    /* ── CARDS ── */
-    .card-slot {
-      background: #252525; border: 2px solid #3a3a3a; border-radius: 8px;
-      width: 88px; padding: 6px 5px; display: flex; flex-direction: column;
-      align-items: center; gap: 2px; cursor: pointer;
-      transition: border-color .15s, transform .1s; font-size: .68rem; text-align: center;
-    }
-    .card-slot:hover { transform: translateY(-2px); border-color: #ff3333; }
-    .card-slot.selected  { border-color: #ffaa00; background: #2a2200; }
-    .card-slot.attacked  { opacity: .45; }
-    .card-slot.frozen    { border-color: #55aaff !important; background: #0a1520; }
-    .card-slot.guarded   { border-color: #44ff88 !important; background: #0a2015; }
-    .card-slot .cname    { font-weight: bold; font-size: .72rem; color: #fff; }
-    .card-slot .cstats   { color: #ff4444; font-size: .82rem; font-weight: bold; }
-    .card-slot .slabel   { color: #666; font-size: .58rem; }
-    .card-slot .badges   { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 2px; }
-    .badge { font-size: .58rem; padding: 1px 4px; border-radius: 3px; }
-    .badge.frozen  { background: #0a2a44; color: #55aaff; border: 1px solid #2255aa; }
-    .badge.burned  { background: #440a00; color: #ff6633; border: 1px solid #882200; }
-    .badge.guarded { background: #0a2a14; color: #44ff88; border: 1px solid #116622; }
-    .badge.block   { background: #2a2a00; color: #ffee44; border: 1px solid #886600; }
-    .badge.star    { background: #1a001a; color: #cc44ff; border: 1px solid #660066; }
-    .badge.special { background: #2a1a00; color: #ffaa44; border: 1px solid #664400; }
-    .badge.fish    { background: #001a2a; color: #44aaff; border: 1px solid #005588; }
-    .badge.donut   { background: #2a1a10; color: #ff8844; border: 1px solid #662200; }
+    /* ── GEM BADGE ── */
+    .gem-badge{display:inline-flex;align-items:center;gap:5px;background:#1a1200;border:1px solid #554400;border-radius:20px;padding:5px 12px;font-size:.9rem;color:#ffcc44;font-weight:bold}
 
-    .opp-card:hover { transform: none; border-color: #3a3a3a; }
-    .opp-card.targetable { cursor: pointer; }
-    .opp-card.targetable:hover { transform: translateY(-2px); border-color: #ff3333; }
+    /* ── ROOM CODE ── */
+    .code-box{background:#1a1a1a;border:2px solid #ff3333;border-radius:10px;padding:20px;text-align:center}
+    .code-box .code{display:block;font-size:2.8rem;font-weight:bold;color:#ff3333;letter-spacing:8px;margin:8px 0}
 
-    .hand-area { display: flex; gap: 6px; flex-wrap: wrap; min-height: 100px; background: #121212; border-radius: 8px; padding: 6px; border: 1px solid #222; }
-    .hand-card {
-      background: #1c1c1c; border: 2px solid #444; border-radius: 8px;
-      width: 88px; padding: 6px 5px; display: flex; flex-direction: column;
-      align-items: center; gap: 2px; cursor: pointer;
-      transition: border-color .15s, transform .1s; font-size: .68rem; text-align: center;
-    }
-    .hand-card:hover { border-color: #ff3333; transform: translateY(-4px); }
-    .hand-card .cname  { font-weight: bold; font-size: .72rem; color: #fff; }
-    .hand-card .cstats { color: #ff4444; font-size: .82rem; font-weight: bold; }
-    .hand-card .slabel { color: #666; font-size: .58rem; }
-    .hand-card.disabled { opacity: .4; pointer-events: none; }
+    /* ── TABS ── */
+    .tabs{display:flex;gap:4px;background:#1a1a1a;border-radius:8px;padding:4px}
+    .tab{flex:1;padding:8px;background:none;border:none;border-radius:6px;color:#777;font-size:.9rem;cursor:pointer}
+    .tab.active{background:#ff3333;color:#fff}
+    .tab:hover:not(.active){background:#2a2a2a}
 
-    .spec-tags { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 2px; }
-    .spec-tag { font-size: .56rem; padding: 1px 3px; border-radius: 3px; background: #2a1a00; color: #ffaa44; border: 1px solid #664400; cursor: help; }
+    /* ── MENU CARDS ── */
+    .menu-btn{display:flex;align-items:center;gap:14px;background:#1a1a1a;border:2px solid #2a2a2a;border-radius:12px;padding:16px;cursor:pointer;transition:border-color .15s,background .15s;width:100%;text-align:left}
+    .menu-btn:hover{border-color:#ff3333;background:#200000}
+    .menu-btn .icon{font-size:2rem;width:44px;text-align:center;flex-shrink:0}
+    .menu-btn .info h3{font-size:1rem;margin-bottom:2px}
+    .menu-btn .info p{font-size:.78rem;color:#777}
+    .menu-btn.disabled{opacity:.4;pointer-events:none}
 
-    .mid-bar { display: flex; gap: 6px; align-items: center; }
-    .turn-ind { font-size: .75rem; font-weight: bold; padding: 4px 8px; border-radius: 6px; background: #1e1e1e; white-space: nowrap; }
-    .turn-ind.yours   { color: #44ff88; border: 1px solid #44ff88; }
-    .turn-ind.theirs  { color: #666;    border: 1px solid #333; }
-    .turn-ind.waiting { color: #ffaa00; border: 1px solid #ffaa00; }
-    .msg-bar { background: #1e1e1e; border-radius: 8px; padding: 6px 12px; font-size: .82rem; color: #ddd; flex: 1; border-left: 3px solid #ff3333; min-height: 32px; }
+    /* ── DIFFICULTY CARDS ── */
+    .diff-grid{display:flex;flex-direction:column;gap:10px}
+    .diff-card{background:#1a1a1a;border:2px solid #333;border-radius:12px;padding:16px;cursor:pointer;transition:all .15s;position:relative}
+    .diff-card:hover{border-color:#ff3333;background:#1f0000}
+    .diff-card.selected{border-color:#ffaa00;background:#1a1200}
+    .diff-card h3{font-size:1rem;margin-bottom:3px}
+    .diff-card .diff-desc{font-size:.78rem;color:#888;margin-bottom:8px}
+    .diff-reward{font-size:.8rem;color:#ffcc44;font-weight:bold}
 
-    .action-bar { display: flex; gap: 6px; flex-wrap: wrap; }
-    .action-bar button { flex: 1; padding: 8px; font-size: .8rem; }
+    /* ── DECK SELECTOR (inline) ── */
+    .deck-sel{display:flex;gap:6px;flex-wrap:wrap}
+    .deck-pill{background:#1a1a1a;border:2px solid #333;border-radius:20px;padding:5px 12px;font-size:.78rem;cursor:pointer;transition:all .15s;white-space:nowrap}
+    .deck-pill:hover{border-color:#888}
+    .deck-pill.active{border-color:#ffaa00;background:#1a1200;color:#ffcc44}
+    .deck-pill.locked{opacity:.4;cursor:not-allowed}
+
+    /* ── SHOP ── */
+    .shop-grid{display:flex;flex-direction:column;gap:10px}
+    .shop-card{background:#1a1a1a;border:2px solid #2a2a2a;border-radius:12px;padding:14px;display:flex;gap:14px;align-items:center}
+    .shop-card .deck-icon{font-size:2.2rem;width:48px;text-align:center;flex-shrink:0}
+    .shop-card .deck-info{flex:1}
+    .shop-card .deck-info h3{font-size:.95rem;margin-bottom:2px}
+    .shop-card .deck-info p{font-size:.75rem;color:#777;margin-bottom:6px}
+    .shop-card .deck-cost{font-size:.85rem;color:#ffcc44;font-weight:bold;margin-bottom:6px}
+    .owned-badge{background:#1a3a1a;border:1px solid #336633;color:#44ff88;font-size:.72rem;padding:3px 8px;border-radius:10px;font-weight:bold}
+
+    /* ── STATS BAR ── */
+    .stat-row{display:flex;gap:20px;justify-content:center;flex-wrap:wrap}
+    .stat-item{text-align:center}
+    .stat-item .sv{font-size:1.4rem;font-weight:bold;color:#ff3333}
+    .stat-item .sl{font-size:.7rem;color:#666;text-transform:uppercase;letter-spacing:1px}
+
+    /* ═══════════════ GAME UI ═══════════════ */
+    .player-bar{display:flex;justify-content:space-between;align-items:center;background:#1a1a1a;border-radius:8px;padding:6px 12px;font-size:.85rem}
+    .player-bar .pname{font-weight:bold}
+    .player-bar .hp{color:#ff3333;font-weight:bold}
+    .field-label{font-size:.62rem;color:#444;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+    .field{display:flex;gap:6px;flex-wrap:wrap;min-height:96px;background:#131313;border-radius:8px;padding:6px;border:1px solid #222}
+
+    .card-slot{background:#1e1e1e;border:2px solid #333;border-radius:8px;width:86px;padding:6px 5px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;transition:border-color .15s,transform .1s;font-size:.67rem;text-align:center;position:relative}
+    .card-slot:hover{transform:translateY(-2px);border-color:#ff3333}
+    .card-slot.selected{border-color:#ffaa00;background:#1a1200}
+    .card-slot.attacked{opacity:.4}
+    .card-slot.frozen{border-color:#55aaff!important;background:#080e18}
+    .card-slot.guarded{border-color:#44ff88!important;background:#081408}
+    .opp-card:hover{transform:none;border-color:#333}
+    .opp-card.targetable{cursor:crosshair}
+    .opp-card.targetable:hover{transform:translateY(-2px);border-color:#ff3333}
+    .card-slot .cname{font-weight:bold;font-size:.7rem;color:#fff}
+    .card-slot .cstats{color:#ff4444;font-size:.8rem;font-weight:bold}
+    .card-slot .slabel{color:#555;font-size:.57rem}
+    .badges{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;margin-top:2px}
+    .badge{font-size:.56rem;padding:1px 3px;border-radius:3px}
+    .badge.frozen{background:#06101e;color:#55aaff;border:1px solid #1a3a66}
+    .badge.burned{background:#1e0600;color:#ff6633;border:1px solid #661100}
+    .badge.guarded{background:#061406;color:#44ff88;border:1px solid #0e4a1a}
+    .badge.blk{background:#1e1e00;color:#ffee44;border:1px solid #555500}
+    .badge.star{background:#100018;color:#cc44ff;border:1px solid #440055}
+    .badge.spc{background:#1e1000;color:#ffaa44;border:1px solid #553300}
+    .badge.fish{background:#00101e;color:#44aaff;border:1px solid #003355}
+    .badge.donut{background:#1e1008;color:#ff8844;border:1px solid #551e00}
+    .spec-tags{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;margin-top:2px}
+    .spec-tag{font-size:.55rem;padding:1px 3px;border-radius:3px;background:#1e1000;color:#ffaa44;border:1px solid #553300;cursor:help}
+
+    .hand-area{display:flex;gap:6px;flex-wrap:wrap;min-height:96px;background:#0e0e0e;border-radius:8px;padding:6px;border:1px solid #1a1a1a}
+    .hand-card{background:#181818;border:2px solid #3a3a3a;border-radius:8px;width:86px;padding:6px 5px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;transition:all .15s;font-size:.67rem;text-align:center}
+    .hand-card:hover{border-color:#ff3333;transform:translateY(-4px)}
+    .hand-card .cname{font-weight:bold;font-size:.7rem;color:#fff}
+    .hand-card .cstats{color:#ff4444;font-size:.8rem;font-weight:bold}
+    .hand-card .slabel{color:#555;font-size:.57rem}
+    .hand-card.disabled{opacity:.38;pointer-events:none}
+
+    .mid-bar{display:flex;gap:6px;align-items:center}
+    .turn-ind{font-size:.73rem;font-weight:bold;padding:4px 8px;border-radius:6px;background:#1a1a1a;white-space:nowrap}
+    .turn-ind.yours{color:#44ff88;border:1px solid #44ff88}
+    .turn-ind.theirs{color:#555;border:1px solid #2a2a2a}
+    .turn-ind.waiting{color:#ffaa00;border:1px solid #ffaa00}
+    .msg-bar{background:#1a1a1a;border-radius:8px;padding:6px 10px;font-size:.8rem;color:#ccc;flex:1;border-left:3px solid #ff3333;min-height:30px}
+    .action-bar{display:flex;gap:6px;flex-wrap:wrap}
+    .action-bar button{flex:1;padding:8px;font-size:.78rem}
 
     /* ── ABILITY PANEL ── */
-    #ability-panel {
-      display: none; position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-      background: #1a1a1a; border: 2px solid #ff3333; border-radius: 10px;
-      padding: 10px 14px; min-width: 260px; max-width: 380px; z-index: 30;
-    }
-    #ability-panel.show { display: block; }
-    #ability-panel h3 { color: #ff3333; font-size: .85rem; margin-bottom: 8px; }
-    #ability-panel .ab-list { display: flex; flex-direction: column; gap: 6px; }
-    #ability-panel .ab-btn { font-size: .78rem; padding: 6px 10px; text-align: left; }
-    #ability-panel .ab-desc { color: #888; font-size: .68rem; margin-top: 2px; }
-    #ab-close { float: right; background: none; border: none; color: #888; font-size: .9rem; cursor: pointer; padding: 0; }
+    #ability-panel{display:none;position:fixed;bottom:76px;left:50%;transform:translateX(-50%);background:#161616;border:2px solid #ff3333;border-radius:10px;padding:10px 14px;min-width:250px;max-width:370px;z-index:30}
+    #ability-panel.show{display:block}
+    #ability-panel h3{color:#ff3333;font-size:.82rem;margin-bottom:6px}
+    .ab-item{margin-bottom:6px}
+    .ab-btn{font-size:.76rem;padding:6px 10px;text-align:left;width:100%;margin-bottom:2px}
+    .ab-desc{color:#666;font-size:.66rem}
+    #ab-close{float:right;background:none;border:none;color:#555;cursor:pointer;padding:0;font-size:.85rem}
 
-    /* ── TARGETING MODE ── */
-    body.targeting .opp-card  { border-color: #ff3333 !important; cursor: crosshair; }
-    body.targeting .your-card { border-color: #44ff88 !important; cursor: crosshair; }
-
-    /* ── HAND TRAP OVERLAY ── */
-    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.88); align-items: center; justify-content: center; flex-direction: column; gap: 14px; z-index: 50; padding: 24px; text-align: center; }
-    .overlay.show { display: flex; }
-    .overlay h2 { color: #55aaff; font-size: 1.3rem; }
-    .overlay p  { color: #ccc; font-size: .88rem; max-width: 360px; line-height: 1.5; }
-    .overlay .btn-row { display: flex; gap: 12px; }
-    .overlay .btn-row button { padding: 10px 24px; }
+    /* ── OVERLAYS ── */
+    .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:60;padding:24px;text-align:center}
+    .overlay.show{display:flex}
+    .overlay h2{font-size:1.4rem}
+    .overlay p{color:#aaa;font-size:.9rem;max-width:340px;line-height:1.5}
 
     /* ── WINNER ── */
-    .winner-banner { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.88); align-items: center; justify-content: center; flex-direction: column; gap: 18px; z-index: 100; }
-    .winner-banner.show { display: flex; }
-    .winner-banner h2 { font-size: 2.2rem; }
-    .winner-banner p  { color: #aaa; }
+    #winner-banner{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:100}
+    #winner-banner.show{display:flex}
+    #winner-banner h2{font-size:2.2rem}
+    .gem-win-box{background:#1a1200;border:2px solid #886600;border-radius:12px;padding:14px 28px;text-align:center;margin:4px 0}
+    .gem-win-box .amount{font-size:2rem;font-weight:bold;color:#ffcc44}
+    .gem-win-box .label{font-size:.8rem;color:#886600}
+
+    /* ── BOT DIFFICULTY LABEL ── */
+    .diff-badge{position:absolute;top:8px;right:10px;font-size:.7rem;font-weight:bold;padding:2px 8px;border-radius:10px}
+    .diff-badge.easy{background:#1a3a1a;color:#44ff88}
+    .diff-badge.medium{background:#1a2a3a;color:#44aaff}
+    .diff-badge.hard{background:#3a1a1a;color:#ff5555}
+
+    /* dividers */
+    .divider{display:flex;align-items:center;gap:8px;color:#333;font-size:.8rem}
+    .divider::before,.divider::after{content:'';flex:1;height:1px;background:#2a2a2a}
+
+    /* profile section */
+    .profile-bar{background:#1a1a1a;border-radius:10px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
+    .profile-bar .uname{font-weight:bold;font-size:1rem}
+    .profile-bar .usub{font-size:.75rem;color:#666}
+
+    /* scrollable shop */
+    #shop-screen .shop-scroll{max-height:420px;overflow-y:auto;padding-right:4px}
+    #shop-screen .shop-scroll::-webkit-scrollbar{width:4px}
+    #shop-screen .shop-scroll::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
   </style>
 </head>
 <body>
 
-<!-- ACCESS -->
+<!-- ═══ ACCESS ═══ -->
 <div class="screen active" id="access-screen">
   <h1>Card Game</h1>
-  <p class="info">Early Access — Enter your code to play</p>
-  <input id="access-input" type="text" placeholder="Access code" autocomplete="off"/>
+  <p class="sub">Early Access</p>
+  <input id="access-input" type="text" placeholder="Enter access code" autocomplete="off"/>
   <button onclick="verifyAccess()">Enter</button>
-  <p class="error" id="access-error"></p>
+  <p class="err" id="access-err"></p>
 </div>
 
-<!-- LOBBY -->
-<div class="screen" id="lobby-screen">
+<!-- ═══ AUTH ═══ -->
+<div class="screen" id="auth-screen">
   <h1>Card Game</h1>
-  <input id="name-input" type="text" placeholder="Your name" maxlength="20" autocomplete="off"/>
-  <button onclick="createRoom()">Create Room</button>
-  <div style="text-align:center;color:#555;font-size:.85rem;">— or join —</div>
-  <div style="display:flex;gap:8px;">
-    <input id="join-code-input" type="text" placeholder="Room code" maxlength="4" style="text-transform:uppercase;"/>
-    <button onclick="joinRoom()" style="flex-shrink:0;width:100px;">Join</button>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('login')">Login</button>
+    <button class="tab"        onclick="switchTab('register')">Register</button>
   </div>
-  <p class="error" id="lobby-error"></p>
+  <!-- Login -->
+  <div id="tab-login">
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+      <input id="login-user" type="text"     placeholder="Username" autocomplete="off"/>
+      <input id="login-pass" type="password" placeholder="Password"/>
+      <button onclick="doLogin()">Login</button>
+    </div>
+  </div>
+  <!-- Register -->
+  <div id="tab-register" style="display:none">
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px">
+      <input id="reg-user" type="text"     placeholder="Choose a username" autocomplete="off"/>
+      <input id="reg-pass" type="password" placeholder="Choose a password"/>
+      <button onclick="doRegister()">Create Account</button>
+      <p class="sub" style="font-size:.75rem">New accounts start with 💎 10 gems</p>
+    </div>
+  </div>
+  <p class="err" id="auth-err"></p>
+  <div class="divider">or</div>
+  <button class="btn-sec" onclick="playAsGuest()">Continue as Guest (Online Only)</button>
 </div>
 
-<!-- WAITING -->
+<!-- ═══ MAIN MENU ═══ -->
+<div class="screen" id="menu-screen">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <h1 style="font-size:1.5rem;letter-spacing:2px">CARD GAME</h1>
+    <div id="menu-gem" class="gem-badge" style="display:none">💎 <span id="menu-gem-count">0</span></div>
+  </div>
+  <!-- Profile bar -->
+  <div class="profile-bar" id="menu-profile" style="display:none">
+    <div>
+      <div class="uname" id="menu-uname">Player</div>
+      <div class="usub" id="menu-stats">0 wins · 0 losses</div>
+    </div>
+    <button class="btn-sec btn-sm" onclick="showScreen('auth-screen');resetAuth()">Switch Account</button>
+  </div>
+  <!-- Navigation -->
+  <button class="menu-btn" onclick="goOnline()">
+    <span class="icon">🌐</span>
+    <div class="info"><h3>Play Online</h3><p>Challenge a real player in real-time</p></div>
+  </button>
+  <button class="menu-btn" id="menu-bot-btn" onclick="showScreen('bot-screen')">
+    <span class="icon">🤖</span>
+    <div class="info"><h3>Play vs Bot</h3><p>Practice against AI. Earn 💎 gems on wins!</p></div>
+  </button>
+  <button class="menu-btn" id="menu-shop-btn" onclick="openShop()">
+    <span class="icon">🏪</span>
+    <div class="info"><h3>Shop</h3><p>Spend gems on powerful themed decks</p></div>
+  </button>
+</div>
+
+<!-- ═══ ONLINE LOBBY ═══ -->
+<div class="screen" id="lobby-screen">
+  <button class="btn-sec btn-sm" style="align-self:flex-start" onclick="showScreen('menu-screen')">← Back</button>
+  <h2>Play Online</h2>
+  <input id="lobby-name" type="text" placeholder="Your display name" maxlength="20" autocomplete="off"/>
+  <div>
+    <div class="field-label" style="margin-bottom:6px">Your Deck</div>
+    <div class="deck-sel" id="lobby-deck-sel"></div>
+  </div>
+  <button onclick="createRoom()">Create Room</button>
+  <div class="divider">or join</div>
+  <div style="display:flex;gap:8px">
+    <input id="join-code" type="text" placeholder="Room code" maxlength="4" style="text-transform:uppercase"/>
+    <button onclick="joinRoom()" style="width:100px;flex-shrink:0">Join</button>
+  </div>
+  <p class="err" id="lobby-err"></p>
+</div>
+
+<!-- ═══ WAITING ═══ -->
 <div class="screen" id="waiting-screen">
   <h1>Waiting...</h1>
-  <div class="room-code-display">
-    <p class="info" style="margin-bottom:8px;">Share this code with your opponent</p>
-    <span id="room-code-display">----</span>
+  <div class="code-box">
+    <p class="sub">Share this code with your opponent</p>
+    <span class="code" id="waiting-code">----</span>
   </div>
-  <p class="info">Waiting for your opponent to join...</p>
+  <p class="sub" style="color:#555">Waiting for your opponent to join...</p>
 </div>
 
-<!-- GAME -->
+<!-- ═══ BOT SCREEN ═══ -->
+<div class="screen" id="bot-screen">
+  <button class="btn-sec btn-sm" style="align-self:flex-start" onclick="showScreen('menu-screen')">← Back</button>
+  <h2>Play vs Bot</h2>
+  <input id="bot-name" type="text" placeholder="Your display name" maxlength="20" autocomplete="off"/>
+  <!-- Difficulty -->
+  <div>
+    <div class="field-label" style="margin-bottom:6px">Difficulty</div>
+    <div class="diff-grid">
+      <div class="diff-card selected" onclick="selectDiff('easy')" id="diff-easy">
+        <span class="diff-badge easy">EASY</span>
+        <h3>Rookie 🤖</h3>
+        <div class="diff-desc">Random plays, attacks 60% of the time</div>
+        <div class="diff-reward">💎 +2 gems on win</div>
+      </div>
+      <div class="diff-card" onclick="selectDiff('medium')" id="diff-medium">
+        <span class="diff-badge medium">MEDIUM</span>
+        <h3>Fighter 🤖</h3>
+        <div class="diff-desc">Plays high-value cards, targets weak enemies</div>
+        <div class="diff-reward">💎 +4 gems on win</div>
+      </div>
+      <div class="diff-card" onclick="selectDiff('hard')" id="diff-hard">
+        <span class="diff-badge hard">HARD</span>
+        <h3>Champion 🤖</h3>
+        <div class="diff-desc">Strategic — removes threats, plays specials first</div>
+        <div class="diff-reward">💎 +7 gems on win</div>
+      </div>
+    </div>
+  </div>
+  <!-- Deck -->
+  <div>
+    <div class="field-label" style="margin-bottom:6px">Your Deck</div>
+    <div class="deck-sel" id="bot-deck-sel"></div>
+  </div>
+  <button onclick="startBot()">Start Game</button>
+  <p class="err" id="bot-err"></p>
+</div>
+
+<!-- ═══ SHOP ═══ -->
+<div class="screen" id="shop-screen">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <button class="btn-sec btn-sm" onclick="showScreen('menu-screen')">← Back</button>
+    <div class="gem-badge">💎 <span id="shop-gem-count">0</span></div>
+  </div>
+  <h2>Deck Shop</h2>
+  <p class="sub" style="margin-top:-4px">Themed decks give higher draw chances for those cards</p>
+  <div class="shop-scroll">
+    <div class="shop-grid" id="shop-grid"></div>
+  </div>
+  <p class="err" id="shop-err"></p>
+</div>
+
+<!-- ═══ GAME ═══ -->
 <div class="screen" id="game-screen">
   <div class="player-bar">
     <span class="pname" id="opp-name-bar">Opponent</span>
-    <span style="color:#666;font-size:.75rem;" id="opp-hand-count">Hand: 0</span>
+    <span id="bot-gem-hint" style="display:none;font-size:.7rem;color:#ffcc44"></span>
+    <span style="color:#555;font-size:.72rem" id="opp-hand-count">Hand: 0</span>
     <span class="hp">❤️ <span id="opp-hp">20</span></span>
   </div>
   <div><div class="field-label">Opponent's Field</div><div class="field" id="opp-field"></div></div>
@@ -177,89 +352,321 @@
     <span class="hp">❤️ <span id="your-hp">20</span></span>
   </div>
   <div class="action-bar">
-    <button id="btn-end-play"  onclick="endPlayPhase()"  disabled>End Play →</button>
-    <button id="btn-direct"    onclick="directAttack()"   disabled class="sec">Direct Attack</button>
-    <button id="btn-end-turn"  onclick="endTurn()"        disabled class="sec">End Turn ✓</button>
-    <button id="btn-cancel-ab" onclick="cancelAbility()"  style="display:none;" class="sec">✕ Cancel</button>
+    <button id="btn-end-play" onclick="endPlayPhase()" disabled>End Play →</button>
+    <button id="btn-direct"   onclick="directAttack()"  disabled class="btn-sec">Direct Attack</button>
+    <button id="btn-end-turn" onclick="endTurn()"        disabled class="btn-sec">End Turn ✓</button>
+    <button id="btn-cancel-ab" onclick="cancelAbility()" style="display:none" class="btn-sec">✕ Cancel</button>
   </div>
 </div>
 
-<!-- ABILITY PANEL -->
+<!-- ═══ ABILITY PANEL ═══ -->
 <div id="ability-panel">
-  <button id="ab-close" onclick="closeAbility()">✕ close</button>
+  <button id="ab-close" onclick="closeAbility()">✕</button>
   <h3 id="ab-card-name">Card</h3>
-  <div id="ab-list" class="ab-list"></div>
+  <div id="ab-list"></div>
 </div>
 
-<!-- HAND TRAP OVERLAY -->
-<div class="overlay" id="hand-trap-overlay">
-  <h2>⚡ Quick Effect Available</h2>
+<!-- ═══ HAND TRAP OVERLAY ═══ -->
+<div class="overlay" id="ht-overlay">
+  <h2 style="color:#55aaff">⚡ Quick Effect</h2>
   <p id="ht-desc">Opponent is acting. Use Clock to cancel?</p>
-  <p style="color:#ffaa44;font-size:.78rem;">Clock is discarded · Once per turn</p>
+  <p style="color:#ffaa44;font-size:.78rem">Clock is discarded · Once per turn</p>
   <div class="btn-row">
-    <button class="blue" onclick="respondQE(true)">Use Clock ❄️</button>
-    <button class="sec"  onclick="respondQE(false)">Pass</button>
+    <button class="btn-blue" onclick="respondQE(true)">Use Clock ❄️</button>
+    <button class="btn-sec"  onclick="respondQE(false)">Pass</button>
   </div>
 </div>
 
-<!-- WINNER -->
-<div class="winner-banner" id="winner-banner">
+<!-- ═══ GEM EARNED OVERLAY ═══ -->
+<div class="overlay" id="gem-overlay">
+  <h2 style="color:#ffcc44">💎 Gems Earned!</h2>
+  <div class="gem-win-box">
+    <div class="amount" id="gem-overlay-amount">+0</div>
+    <div class="label" id="gem-overlay-label">for winning on Easy</div>
+  </div>
+  <p id="gem-overlay-total" style="color:#ffcc44;font-size:.9rem"></p>
+  <button onclick="document.getElementById('gem-overlay').classList.remove('show')">Continue</button>
+</div>
+
+<!-- ═══ WINNER BANNER ═══ -->
+<div id="winner-banner">
   <h2 id="winner-text">Winner!</h2>
   <p  id="winner-sub"></p>
-  <button onclick="location.reload()">Play Again</button>
+  <button onclick="goHome()">Back to Menu</button>
 </div>
 
 <script>
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
 const socket = io();
 let myIndex = null, roomCode = null, gameState = null;
-let selectedAttacker = null;
-let abilityMode = null; // { ability_id, card_uid, fish_type?, needs_target, target_pool }
+let selectedAttacker = null, abilityMode = null;
+let session = { username: null, gems: 0, owned_decks: ['basic'], wins: 0, losses: 0 };
+let selectedDiff = 'easy';
 
-// ── SCREENS ──
-function show(id) {
+const ACTIVE_ABILITIES = ['circus_bounce','apple_buff','sword_buff','milk_summon','milk_drink',
+  'greed_atlas','fisher_pull','fisher_catch','core_dark_star','undying_donut'];
+
+// ═══════════════════════════════════════════════════════
+//  SCREEN ROUTING
+// ═══════════════════════════════════════════════════════
+function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
-// ── ACCESS ──
-document.getElementById('access-input').addEventListener('keydown', e => { if (e.key==='Enter') verifyAccess(); });
-function verifyAccess() { socket.emit('verify_access', { code: document.getElementById('access-input').value.trim() }); }
-socket.on('access_granted', () => show('lobby-screen'));
-socket.on('access_denied',  () => { document.getElementById('access-error').textContent = 'Invalid access code.'; });
-
-// ── LOBBY ──
-function getName() { return document.getElementById('name-input').value.trim(); }
-function createRoom() {
-  const n = getName(); if (!n) { document.getElementById('lobby-error').textContent = 'Enter your name.'; return; }
-  socket.emit('create_room', { name: n });
+function goHome() {
+  document.getElementById('winner-banner').classList.remove('show');
+  document.getElementById('gem-overlay').classList.remove('show');
+  roomCode = null; myIndex = null; gameState = null; selectedAttacker = null;
+  cancelAbility();
+  renderMenuProfile();
+  showScreen('menu-screen');
 }
-function joinRoom() {
-  const n = getName(), c = document.getElementById('join-code-input').value.trim().toUpperCase();
-  if (!n) { document.getElementById('lobby-error').textContent = 'Enter your name.'; return; }
-  if (!c) { document.getElementById('lobby-error').textContent = 'Enter a room code.'; return; }
-  socket.emit('join_game', { name: n, code: c });
-}
-socket.on('room_created', d => { roomCode = d.code; document.getElementById('room-code-display').textContent = d.code; show('waiting-screen'); });
-socket.on('room_error',   d => { document.getElementById('lobby-error').textContent = d.msg; });
 
-// ── GAME START ──
-socket.on('game_start', d => {
-  myIndex = d.your_index; roomCode = d.room_code;
-  show('game-screen');
-  document.getElementById('msg-bar').textContent = `Coin: ${d.coin.toUpperCase()} — ${d.first_player} goes first!`;
+// ═══════════════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0) === (tab==='login')));
+  document.getElementById('tab-login').style.display    = tab==='login'    ? 'block' : 'none';
+  document.getElementById('tab-register').style.display = tab==='register' ? 'block' : 'none';
+  document.getElementById('auth-err').textContent = '';
+}
+
+function resetAuth() {
+  session = { username: null, gems: 0, owned_decks: ['basic'], wins: 0, losses: 0 };
+}
+
+function doLogin() {
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value.trim();
+  if (!u||!p) { document.getElementById('auth-err').textContent='Fill in all fields.'; return; }
+  socket.emit('login', { username: u, password: p });
+}
+
+function doRegister() {
+  const u = document.getElementById('reg-user').value.trim();
+  const p = document.getElementById('reg-pass').value.trim();
+  if (!u||!p) { document.getElementById('auth-err').textContent='Fill in all fields.'; return; }
+  socket.emit('register', { username: u, password: p });
+}
+
+function playAsGuest() {
+  session.username = null;
+  goOnline();
+}
+
+socket.on('auth_ok', d => {
+  session.username    = d.username;
+  session.gems        = d.gems;
+  session.owned_decks = d.owned_decks;
+  session.wins        = d.wins;
+  session.losses      = d.losses;
+  renderMenuProfile();
+  showScreen('menu-screen');
 });
 
-// ── STATE UPDATE ──
+socket.on('auth_error', d => {
+  document.getElementById('auth-err').textContent = d.msg;
+});
+
+function renderMenuProfile() {
+  const gemEl = document.getElementById('menu-gem');
+  const profEl = document.getElementById('menu-profile');
+  if (session.username) {
+    gemEl.style.display = 'inline-flex';
+    document.getElementById('menu-gem-count').textContent = session.gems;
+    profEl.style.display = 'flex';
+    document.getElementById('menu-uname').textContent = session.username;
+    document.getElementById('menu-stats').textContent = `${session.wins} wins · ${session.losses} losses`;
+  } else {
+    gemEl.style.display = 'none';
+    profEl.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  ACCESS
+// ═══════════════════════════════════════════════════════
+document.getElementById('access-input').addEventListener('keydown', e => { if(e.key==='Enter') verifyAccess(); });
+function verifyAccess() { socket.emit('verify_access', { code: document.getElementById('access-input').value.trim() }); }
+socket.on('access_granted', () => showScreen('auth-screen'));
+socket.on('access_denied',  () => { document.getElementById('access-err').textContent='Invalid access code.'; });
+
+// ═══════════════════════════════════════════════════════
+//  DECK SELECTOR HELPERS
+// ═══════════════════════════════════════════════════════
+const ALL_DECKS = [
+  {id:'basic',icon:'🃏',name:'Starter'},
+  {id:'brawler',icon:'⚔️',name:'Brawler'},
+  {id:'guardian',icon:'🛡️',name:'Guardian'},
+  {id:'mystic',icon:'🔮',name:'Mystic'},
+  {id:'chaos',icon:'🌀',name:'Chaos'},
+];
+const deckSelections = { lobby: 'basic', bot: 'basic' };
+
+function buildDeckSelector(containerId, key) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  ALL_DECKS.forEach(d => {
+    const owned = session.owned_decks.includes(d.id);
+    const pill = document.createElement('button');
+    pill.className = 'deck-pill' + (deckSelections[key]===d.id ? ' active' : '') + (!owned ? ' locked' : '');
+    pill.innerHTML = `${d.icon} ${d.name}${!owned ? ' 🔒' : ''}`;
+    pill.title = owned ? '' : 'Purchase in Shop';
+    if (owned) pill.onclick = () => { deckSelections[key] = d.id; buildDeckSelector(containerId, key); };
+    el.appendChild(pill);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  ONLINE
+// ═══════════════════════════════════════════════════════
+function goOnline() {
+  buildDeckSelector('lobby-deck-sel', 'lobby');
+  if (session.username) document.getElementById('lobby-name').value = session.username;
+  showScreen('lobby-screen');
+}
+
+function createRoom() {
+  const name = document.getElementById('lobby-name').value.trim();
+  if (!name) { document.getElementById('lobby-err').textContent='Enter a name.'; return; }
+  socket.emit('create_room', { name, deck: deckSelections.lobby, username: session.username });
+}
+function joinRoom() {
+  const name = document.getElementById('lobby-name').value.trim();
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  if (!name) { document.getElementById('lobby-err').textContent='Enter a name.'; return; }
+  if (!code) { document.getElementById('lobby-err').textContent='Enter a room code.'; return; }
+  socket.emit('join_game', { name, code, deck: deckSelections.lobby, username: session.username });
+}
+
+socket.on('room_created', d => {
+  roomCode = d.code;
+  document.getElementById('waiting-code').textContent = d.code;
+  showScreen('waiting-screen');
+});
+socket.on('room_error', d => { document.getElementById('lobby-err').textContent = d.msg; });
+
+// ═══════════════════════════════════════════════════════
+//  BOT
+// ═══════════════════════════════════════════════════════
+function selectDiff(d) {
+  selectedDiff = d;
+  ['easy','medium','hard'].forEach(x =>
+    document.getElementById('diff-'+x).classList.toggle('selected', x===d));
+}
+
+function startBot() {
+  const name = document.getElementById('bot-name').value.trim() ||
+               session.username || 'Player';
+  if (!name) { document.getElementById('bot-err').textContent='Enter a name.'; return; }
+  socket.emit('start_bot_game', {
+    name, difficulty: selectedDiff, deck: deckSelections.bot,
+    username: session.username
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  SHOP
+// ═══════════════════════════════════════════════════════
+const DECK_DESCS = {
+  basic:   {icon:'🃏',name:'Starter Deck',   desc:'A balanced mix of all cards. Perfect for learning.'},
+  brawler: {icon:'⚔️',name:'Brawler Deck',   desc:'High-damage cards. Pierce, cleave, and overwhelm.'},
+  guardian:{icon:'🛡️',name:'Guardian Deck',  desc:'Defensive powerhouse. Block, regen, and outlast.'},
+  mystic:  {icon:'🔮',name:'Mystic Deck',    desc:'Ability-focused. Trap, reflect, and control the field.'},
+  chaos:   {icon:'🌀',name:'Chaos Deck',     desc:'Unpredictable wildcards. High risk, high reward.'},
+};
+const DECK_COSTS = {basic:0,brawler:15,guardian:15,mystic:20,chaos:25};
+
+function openShop() {
+  if (!session.username) {
+    alert('Log in to access the shop!'); return;
+  }
+  renderShop();
+  showScreen('shop-screen');
+}
+
+function renderShop() {
+  document.getElementById('shop-gem-count').textContent = session.gems;
+  document.getElementById('shop-err').textContent = '';
+  const grid = document.getElementById('shop-grid');
+  grid.innerHTML = '';
+  Object.keys(DECK_DESCS).forEach(id => {
+    const d = DECK_DESCS[id];
+    const cost = DECK_COSTS[id];
+    const owned = session.owned_decks.includes(id);
+    const canAfford = session.gems >= cost;
+    const div = document.createElement('div');
+    div.className = 'shop-card';
+    div.innerHTML = `
+      <div class="deck-icon">${d.icon}</div>
+      <div class="deck-info">
+        <h3>${d.name}</h3>
+        <p>${d.desc}</p>
+        ${cost > 0 ? `<div class="deck-cost">💎 ${cost} gems</div>` : '<div class="deck-cost" style="color:#44ff88">Free</div>'}
+        ${owned
+          ? '<span class="owned-badge">✓ Owned</span>'
+          : `<button class="btn-sm ${canAfford?'btn-gold':'btn-sec'}"
+              ${!canAfford?'disabled title="Not enough gems"':''}
+              onclick="buyDeck('${id}')">Buy</button>`
+        }
+      </div>`;
+    grid.appendChild(div);
+  });
+}
+
+function buyDeck(id) {
+  socket.emit('buy_deck', { username: session.username, deck_id: id });
+}
+socket.on('buy_ok', d => {
+  session.gems = d.gems;
+  session.owned_decks = d.owned_decks;
+  renderShop();
+  document.getElementById('menu-gem-count').textContent = session.gems;
+});
+socket.on('buy_error', d => {
+  document.getElementById('shop-err').textContent = d.msg;
+});
+
+// ═══════════════════════════════════════════════════════
+//  GAME START
+// ═══════════════════════════════════════════════════════
+socket.on('game_start', d => {
+  myIndex  = d.your_index;
+  roomCode = d.room_code;
+  showScreen('game-screen');
+  document.getElementById('msg-bar').textContent =
+    `Coin: ${(d.coin||'heads').toUpperCase()} — ${d.first_player} goes first!`;
+  // Show gem hint for bot games
+  const hint = document.getElementById('bot-gem-hint');
+  if (d.is_bot_game && d.gem_reward) {
+    hint.style.display = 'inline';
+    hint.textContent = `Win = +${d.gem_reward}💎`;
+  } else {
+    hint.style.display = 'none';
+  }
+  // Pre-fill bot screen name
+  buildDeckSelector('bot-deck-sel', 'bot');
+});
+
+// ═══════════════════════════════════════════════════════
+//  STATE UPDATE
+// ═══════════════════════════════════════════════════════
 socket.on('state_update', s => {
   gameState = s;
-  document.getElementById('hand-trap-overlay').classList.toggle('show', !!s.hand_trap_prompt);
-  if (s.hand_trap_prompt) document.getElementById('ht-desc').textContent = `Opponent is ${s.pending_desc}. Use Clock to cancel?`;
+  document.getElementById('ht-overlay').classList.toggle('show', !!s.hand_trap_prompt);
+  if (s.hand_trap_prompt)
+    document.getElementById('ht-desc').textContent =
+      `Opponent is ${s.pending_desc}. Use Clock to cancel?`;
   renderState(s);
 });
 
 function renderState(s) {
-  document.getElementById('your-hp').textContent = s.your_hp;
-  document.getElementById('opp-hp').textContent  = s.opp_hp;
+  document.getElementById('your-hp').textContent   = s.your_hp;
+  document.getElementById('opp-hp').textContent    = s.opp_hp;
   document.getElementById('your-name-bar').textContent = s.your_name;
   document.getElementById('opp-name-bar').textContent  = s.opp_name;
   document.getElementById('opp-hand-count').textContent = `Hand: ${s.opp_hand_count}`;
@@ -267,12 +674,12 @@ function renderState(s) {
 
   const isMyTurn = s.current_turn === myIndex;
   const ind = document.getElementById('turn-ind');
-  if (s.phase === 'waiting') { ind.textContent = 'Waiting...'; ind.className = 'turn-ind theirs'; }
-  else if (s.phase === 'hand_trap_window') {
-    if (isMyTurn) { ind.textContent = 'Waiting...'; ind.className = 'turn-ind waiting'; }
-    else          { ind.textContent = 'Quick Effect?'; ind.className = 'turn-ind yours'; }
+  if (s.phase==='waiting') { ind.textContent='Waiting...'; ind.className='turn-ind theirs'; }
+  else if (s.phase==='hand_trap_window') {
+    if (isMyTurn) { ind.textContent='Waiting...'; ind.className='turn-ind waiting'; }
+    else          { ind.textContent='Quick Effect?'; ind.className='turn-ind yours'; }
   } else if (isMyTurn) {
-    ind.textContent = `Your Turn — ${s.phase === 'play' ? 'Play' : 'Attack'}`;
+    ind.textContent = `Your Turn — ${s.phase==='play'?'Play':'Attack'}`;
     ind.className = 'turn-ind yours';
   } else {
     ind.textContent = `${s.opp_name}'s Turn`; ind.className = 'turn-ind theirs';
@@ -282,253 +689,217 @@ function renderState(s) {
   renderYourField(s.your_field, s.phase, isMyTurn);
   renderHand(s.your_hand, s.phase, isMyTurn, s.cards_played);
 
-  const inPlay   = isMyTurn && s.phase === 'play';
-  const inAttack = isMyTurn && s.phase === 'attack';
+  const inPlay   = isMyTurn && s.phase==='play';
+  const inAttack = isMyTurn && s.phase==='attack';
   document.getElementById('btn-end-play').disabled = !inPlay;
   document.getElementById('btn-end-turn').disabled = !inAttack;
   document.getElementById('btn-direct').disabled =
-    !(inAttack && selectedAttacker !== null && s.opp_field.length === 0);
+    !(inAttack && selectedAttacker!==null && s.opp_field.length===0);
 
   if (s.winner) showWinner(s.winner, s.your_name);
 }
 
-// ── CARD HTML ──
-function badgesHTML(card, isOpp) {
-  let b = '';
-  if (card.frozen)                     b += '<span class="badge frozen">❄️Frozen</span>';
-  if (card.burn_turns > 0)             b += `<span class="badge burned">🔥${card.burn_turns}t</span>`;
-  if (card.guard_remaining > 0)        b += `<span class="badge guarded">🛡️${card.guard_remaining}t</span>`;
-  if (card.block > 0)                  b += `<span class="badge block">🔷${card.block}</span>`;
-  if (card.dark_stars > 0)             b += `<span class="badge star">🌑×${card.dark_stars}</span>`;
-  if (card.donuts > 0)                 b += `<span class="badge donut">🍩×${card.donuts}</span>`;
-  if ((card.fish||[]).length > 0)      b += `<span class="badge fish">🐟${card.fish.map(f=>f==='light'?'🌟':'🌑').join('')}</span>`;
-  return b ? `<div class="badges">${b}</div>` : '';
+// ═══════════════════════════════════════════════════════
+//  CARD RENDERING
+// ═══════════════════════════════════════════════════════
+function badgesHTML(c) {
+  let b='';
+  if (c.frozen)                 b+=`<span class="badge frozen">❄️Frozen</span>`;
+  if (c.burn_turns>0)           b+=`<span class="badge burned">🔥${c.burn_turns}t</span>`;
+  if (c.guard_remaining>0)      b+=`<span class="badge guarded">🛡️${c.guard_remaining}t</span>`;
+  if (c.block>0)                b+=`<span class="badge blk">🔷${c.block}</span>`;
+  if (c.dark_stars>0)           b+=`<span class="badge star">🌑×${c.dark_stars}</span>`;
+  if (c.donuts>0)               b+=`<span class="badge donut">🍩×${c.donuts}</span>`;
+  if ((c.fish||[]).length>0)    b+=`<span class="badge fish">🐟${c.fish.map(f=>f==='light'?'🌟':'🌑').join('')}</span>`;
+  return b?`<div class="badges">${b}</div>`:'';
 }
-
-function specTagsHTML(card) {
-  const sp = card.specials || [];
+function specTagsHTML(c) {
+  const sp=c.specials||[];
   if (!sp.length) return '';
-  return '<div class="spec-tags">' + sp.map(s => `<span class="spec-tag" title="${s.desc}">${s.name}</span>`).join('') + '</div>';
+  return '<div class="spec-tags">'+sp.map(s=>`<span class="spec-tag" title="${s.desc}">${s.name}</span>`).join('')+'</div>';
+}
+function cardInnerHTML(c) {
+  const defDisp = c.def<=0 ? `<span style="color:#ff5555">${c.def}</span>` : c.def;
+  return `<div class="cname">${c.name}</div><div class="slabel">ATK / DEF</div><div class="cstats">${c.atk} / ${defDisp}</div>${badgesHTML(c)}${specTagsHTML(c)}`;
 }
 
-function cardHTML(card) {
-  const def = card.def <= 0 ? `<span style="color:#ff6666">${card.def}</span>` : card.def;
-  return `
-    <div class="cname">${card.name}</div>
-    <div class="slabel">ATK / DEF</div>
-    <div class="cstats">${card.atk} / ${def}</div>
-    ${badgesHTML(card)}
-    ${specTagsHTML(card)}
-  `;
-}
-
-// ── RENDER FIELDS ──
 function renderOppField(field, phase, isMyTurn) {
-  const el = document.getElementById('opp-field'); el.innerHTML = '';
-  field.forEach((card, i) => {
-    const canTarget = isMyTurn && phase === 'attack' && selectedAttacker !== null;
-    const isAbTarget = abilityMode && abilityMode.target_pool === 'opp';
-    const div = document.createElement('div');
-    div.className = 'card-slot opp-card' +
-      (canTarget || isAbTarget ? ' targetable' : '') +
-      (card.frozen ? ' frozen' : '') +
-      (card.guard_remaining > 0 ? ' guarded' : '');
-    div.innerHTML = cardHTML(card);
-    if (canTarget) div.addEventListener('click', () => attackTarget(i));
-    else if (isAbTarget) div.addEventListener('click', () => confirmAbilityTarget(card.uid, 'opp'));
+  const el=document.getElementById('opp-field'); el.innerHTML='';
+  field.forEach((card,i) => {
+    const canTarget = isMyTurn && phase==='attack' && selectedAttacker!==null;
+    const isAbTarget = abilityMode && abilityMode.target_pool==='opp';
+    const div=document.createElement('div');
+    div.className='card-slot opp-card'+
+      (canTarget||isAbTarget?' targetable':'')+
+      (card.frozen?' frozen':'')+(card.guard_remaining>0?' guarded':'');
+    div.innerHTML=cardInnerHTML(card);
+    if (canTarget) div.addEventListener('click',()=>attackTarget(i));
+    else if (isAbTarget) div.addEventListener('click',()=>confirmAbilityTarget(card.uid,'opp'));
     el.appendChild(div);
   });
 }
-
 function renderYourField(field, phase, isMyTurn) {
-  const el = document.getElementById('your-field'); el.innerHTML = '';
-  field.forEach((card, i) => {
-    const canSelect = isMyTurn && phase === 'attack' && !card.attacked;
-    const isSelected = selectedAttacker === i;
-    const isAbTarget = abilityMode && abilityMode.target_pool === 'your_field';
-    const div = document.createElement('div');
-    div.className = 'card-slot' +
-      (isSelected ? ' selected' : '') +
-      (card.attacked ? ' attacked' : '') +
-      (card.frozen ? ' frozen' : '') +
-      (card.guard_remaining > 0 ? ' guarded' : '');
-    div.innerHTML = cardHTML(card);
-    if (isAbTarget) div.addEventListener('click', () => confirmAbilityTarget(card.uid, 'your_field'));
-    else if (canSelect) div.addEventListener('click', () => selectAttacker(i));
-    else if (isMyTurn && !abilityMode) div.addEventListener('click', () => openAbilityPanel(card));
+  const el=document.getElementById('your-field'); el.innerHTML='';
+  field.forEach((card,i) => {
+    const canSel=isMyTurn && phase==='attack' && !card.attacked;
+    const isSel=selectedAttacker===i;
+    const isAbTarget=abilityMode && abilityMode.target_pool==='your_field';
+    const div=document.createElement('div');
+    div.className='card-slot'+(isSel?' selected':'')+(card.attacked?' attacked':'')+
+      (card.frozen?' frozen':'')+(card.guard_remaining>0?' guarded':'');
+    div.innerHTML=cardInnerHTML(card);
+    if (isAbTarget) div.addEventListener('click',()=>confirmAbilityTarget(card.uid,'your_field'));
+    else if (canSel) div.addEventListener('click',()=>selectAttacker(i));
+    else if (isMyTurn && !abilityMode) div.addEventListener('click',()=>openAbilityPanel(card));
     el.appendChild(div);
   });
 }
-
 function renderHand(hand, phase, isMyTurn, cardsPlayed) {
-  const el = document.getElementById('your-hand'); el.innerHTML = '';
-  hand.forEach((card, i) => {
-    const canPlay = isMyTurn && phase === 'play' && cardsPlayed < 2;
-    const isAbTarget = abilityMode && abilityMode.target_pool === 'your_hand';
-    const div = document.createElement('div');
-    div.className = 'hand-card' + (canPlay || isAbTarget ? '' : ' disabled');
-    div.innerHTML = `
-      <div class="cname">${card.name}</div>
-      <div class="slabel">ATK / DEF</div>
-      <div class="cstats">${card.atk} / ${card.def}</div>
-      ${specTagsHTML(card)}
-    `;
-    if (isAbTarget) div.addEventListener('click', () => confirmAbilityTarget(card.uid, 'hand'));
-    else if (canPlay) div.addEventListener('click', () => playCard(i));
+  const el=document.getElementById('your-hand'); el.innerHTML='';
+  hand.forEach((card,i) => {
+    const canPlay=isMyTurn && phase==='play' && cardsPlayed<2;
+    const isAbTarget=abilityMode && abilityMode.target_pool==='your_hand';
+    const div=document.createElement('div');
+    div.className='hand-card'+(canPlay||isAbTarget?'':' disabled');
+    div.innerHTML=`<div class="cname">${card.name}</div><div class="slabel">ATK / DEF</div><div class="cstats">${card.atk} / ${card.def}</div>${specTagsHTML(card)}`;
+    if (isAbTarget) div.addEventListener('click',()=>confirmAbilityTarget(card.uid,'hand'));
+    else if (canPlay) div.addEventListener('click',()=>playCard(i));
     el.appendChild(div);
   });
 }
 
-// ── GAME ACTIONS ──
-function playCard(i)    { socket.emit('play_card',      { room: roomCode, card_index: i }); }
-function endPlayPhase() { socket.emit('end_play_phase', { room: roomCode }); selectedAttacker = null; closeAbility(); }
-function endTurn()      { selectedAttacker = null; closeAbility(); socket.emit('end_turn', { room: roomCode }); }
+// ═══════════════════════════════════════════════════════
+//  GAME ACTIONS
+// ═══════════════════════════════════════════════════════
+function playCard(i)    { socket.emit('play_card',      {room:roomCode,card_index:i}); }
+function endPlayPhase() { socket.emit('end_play_phase', {room:roomCode}); selectedAttacker=null; closeAbility(); }
+function endTurn()      { selectedAttacker=null; closeAbility(); socket.emit('end_turn',{room:roomCode}); }
 
 function selectAttacker(i) {
-  selectedAttacker = i;
+  selectedAttacker=i;
   renderState(gameState);
-  document.getElementById('btn-direct').disabled = !(gameState && gameState.opp_field.length === 0);
+  document.getElementById('btn-direct').disabled=!(gameState && gameState.opp_field.length===0);
 }
 function attackTarget(ti) {
-  if (selectedAttacker === null) return;
-  socket.emit('attack', { room: roomCode, attacker_index: selectedAttacker, target_index: ti });
-  selectedAttacker = null;
+  if (selectedAttacker===null) return;
+  socket.emit('attack',{room:roomCode,attacker_index:selectedAttacker,target_index:ti});
+  selectedAttacker=null;
 }
 function directAttack() {
-  if (selectedAttacker === null) return;
-  socket.emit('attack', { room: roomCode, attacker_index: selectedAttacker, target_index: null });
-  selectedAttacker = null;
+  if (selectedAttacker===null) return;
+  socket.emit('attack',{room:roomCode,attacker_index:selectedAttacker,target_index:null});
+  selectedAttacker=null;
 }
 function respondQE(use) {
-  document.getElementById('hand-trap-overlay').classList.remove('show');
-  socket.emit('quick_effect_response', { room: roomCode, use });
+  document.getElementById('ht-overlay').classList.remove('show');
+  socket.emit('quick_effect_response',{room:roomCode,use});
 }
 
-// ── ABILITY PANEL ──
-let abCardRef = null;
-
+// ═══════════════════════════════════════════════════════
+//  ABILITY PANEL
+// ═══════════════════════════════════════════════════════
+let abCardRef=null;
 function openAbilityPanel(card) {
-  if (!gameState) return;
-  const isMyTurn = gameState.current_turn === myIndex;
-  if (!isMyTurn) return;
-  const specials = card.specials || [];
-  const active = specials.filter(s => ACTIVE_ABILITIES.includes(s.id));
+  if (!gameState || gameState.current_turn!==myIndex) return;
+  const active=(card.specials||[]).filter(s=>ACTIVE_ABILITIES.includes(s.id));
   if (!active.length) return;
-
-  abCardRef = card;
-  document.getElementById('ab-card-name').textContent = card.name;
-  const list = document.getElementById('ab-list');
-  list.innerHTML = '';
+  abCardRef=card;
+  document.getElementById('ab-card-name').textContent=card.name;
+  const list=document.getElementById('ab-list'); list.innerHTML='';
   active.forEach(sp => {
-    const wrapper = document.createElement('div');
-    const btn = document.createElement('button');
-    btn.className = 'ab-btn gold';
-    btn.textContent = sp.name;
-    btn.onclick = () => startAbility(sp.id, card);
-    const desc = document.createElement('div');
-    desc.className = 'ab-desc';
-    desc.textContent = sp.desc;
-    wrapper.appendChild(btn);
-    wrapper.appendChild(desc);
-
-    // Fisher fish sub-options
-    if (sp.id === 'fisher_catch' && (card.fish||[]).length > 0) {
-      const sub = document.createElement('div');
-      sub.style = 'display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;';
-      const fish = card.fish || [];
-      if (fish.includes('light')) {
-        const lb = document.createElement('button');
-        lb.className = 'ab-btn blue'; lb.textContent = '🌟 Use Light Fish';
-        lb.onclick = () => startAbility('fisher_catch', card, 'light');
+    const item=document.createElement('div');
+    item.className='ab-item';
+    const btn=document.createElement('button');
+    btn.className='ab-btn btn-gold';
+    btn.textContent=sp.name;
+    btn.onclick=()=>startAbility(sp.id,card);
+    const desc=document.createElement('div');
+    desc.className='ab-desc'; desc.textContent=sp.desc;
+    item.appendChild(btn); item.appendChild(desc);
+    // Fish sub-buttons
+    if (sp.id==='fisher_catch' && (card.fish||[]).length>0) {
+      const sub=document.createElement('div'); sub.style='display:flex;gap:4px;margin-top:4px;flex-wrap:wrap';
+      if (card.fish.includes('light')) {
+        const lb=document.createElement('button'); lb.className='ab-btn btn-blue btn-sm';
+        lb.textContent='🌟 Use Light Fish'; lb.onclick=()=>startAbility('fisher_catch',card,'light');
         sub.appendChild(lb);
       }
-      if (fish.includes('dark')) {
-        const db = document.createElement('button');
-        db.className = 'ab-btn sec'; db.textContent = '🌑 Use Dark Fish';
-        db.onclick = () => startAbility('fisher_catch', card, 'dark');
+      if (card.fish.includes('dark')) {
+        const db=document.createElement('button'); db.className='ab-btn btn-sec btn-sm';
+        db.textContent='🌑 Use Dark Fish'; db.onclick=()=>startAbility('fisher_catch',card,'dark');
         sub.appendChild(db);
       }
-      wrapper.appendChild(sub);
+      item.appendChild(sub);
     }
-
-    list.appendChild(wrapper);
+    list.appendChild(item);
   });
   document.getElementById('ability-panel').classList.add('show');
 }
-
-function closeAbility() {
+function closeAbility() { document.getElementById('ability-panel').classList.remove('show'); cancelAbility(); }
+function startAbility(id,card,fishType) {
   document.getElementById('ability-panel').classList.remove('show');
-  cancelAbility();
-}
-
-const ACTIVE_ABILITIES = [
-  'circus_bounce','apple_buff','sword_buff',
-  'milk_summon','milk_drink','greed_atlas',
-  'fisher_pull','fisher_catch','core_dark_star',
-  'undying_donut'
-];
-
-function startAbility(id, card, fishType) {
-  document.getElementById('ability-panel').classList.remove('show');
-  abilityMode = { ability_id: id, card_uid: card.uid, fish_type: fishType || null };
-
-  // Abilities that need a target
-  const targetMap = {
-    'circus_bounce': 'your_field',
-    'apple_buff':    'all',
-    'sword_buff':    'all',
-    'milk_drink':    'your_field',
-    'core_dark_star':'opp',
-    'fisher_catch':  fishType === 'light' ? 'all' : 'opp',
-    'undying_donut': 'your_field',
+  abilityMode={ability_id:id,card_uid:card.uid,fish_type:fishType||null};
+  const targetMap={
+    circus_bounce:'your_field',apple_buff:'all',sword_buff:'all',
+    milk_drink:'your_field',core_dark_star:'opp',
+    fisher_catch:fishType==='light'?'all':'opp',undying_donut:'your_field',
   };
-
   if (id in targetMap) {
-    abilityMode.target_pool = targetMap[id];
-    document.getElementById('msg-bar').textContent = '👆 Click a target card...';
-    document.getElementById('btn-cancel-ab').style.display = 'block';
+    abilityMode.target_pool=targetMap[id];
+    document.getElementById('msg-bar').textContent='👆 Click a target card...';
+    document.getElementById('btn-cancel-ab').style.display='block';
     renderState(gameState);
   } else {
-    // No target needed — fire immediately
-    socket.emit('use_ability', { room: roomCode, ability_id: id, card_uid: card.uid });
+    socket.emit('use_ability',{room:roomCode,ability_id:id,card_uid:card.uid});
     cancelAbility();
   }
 }
-
-function confirmAbilityTarget(target_uid, pool) {
+function confirmAbilityTarget(target_uid,pool) {
   if (!abilityMode) return;
-  socket.emit('use_ability', {
-    room:       roomCode,
-    ability_id: abilityMode.ability_id,
-    card_uid:   abilityMode.card_uid,
-    target_uid: target_uid,
-    fish_type:  abilityMode.fish_type,
-  });
+  socket.emit('use_ability',{room:roomCode,ability_id:abilityMode.ability_id,
+    card_uid:abilityMode.card_uid,target_uid,fish_type:abilityMode.fish_type});
   cancelAbility();
 }
-
 function cancelAbility() {
-  abilityMode = null;
-  document.getElementById('btn-cancel-ab').style.display = 'none';
+  abilityMode=null;
+  document.getElementById('btn-cancel-ab').style.display='none';
   if (gameState) renderState(gameState);
 }
 
-// ── END GAME ──
+// ═══════════════════════════════════════════════════════
+//  GEM REWARD
+// ═══════════════════════════════════════════════════════
+socket.on('gem_reward', d => {
+  session.gems = (d.total !== undefined) ? d.total : (session.gems + d.amount);
+  document.getElementById('menu-gem-count').textContent = session.gems;
+  document.getElementById('gem-overlay-amount').textContent = `+${d.amount} 💎`;
+  document.getElementById('gem-overlay-label').textContent =
+    `for winning on ${d.difficulty ? d.difficulty.charAt(0).toUpperCase()+d.difficulty.slice(1) : ''}`;
+  document.getElementById('gem-overlay-total').textContent = `Total: ${session.gems} 💎`;
+  document.getElementById('gem-overlay').classList.add('show');
+});
+
+// ═══════════════════════════════════════════════════════
+//  WINNER
+// ═══════════════════════════════════════════════════════
 function showWinner(name, yours) {
-  const b = document.getElementById('winner-banner');
-  const t = document.getElementById('winner-text');
-  const s = document.getElementById('winner-sub');
-  if (name === yours) { t.textContent = '🏆 You Win!'; t.style.color = '#44ff88'; s.textContent = 'Congratulations!'; }
-  else                { t.textContent = `${name} Wins!`; t.style.color = '#ff3333'; s.textContent = 'Better luck next time.'; }
+  const b=document.getElementById('winner-banner');
+  const t=document.getElementById('winner-text');
+  const s=document.getElementById('winner-sub');
+  if (name===yours) { t.textContent='🏆 You Win!'; t.style.color='#44ff88'; s.textContent='Congratulations!'; }
+  else              { t.textContent=`${name} Wins!`; t.style.color='#ff3333'; s.textContent='Better luck next time.'; }
   b.classList.add('show');
 }
 socket.on('opponent_left', () => {
-  document.getElementById('winner-text').textContent = 'Opponent Left';
-  document.getElementById('winner-text').style.color = '#ffaa00';
-  document.getElementById('winner-sub').textContent = 'Your opponent disconnected.';
+  document.getElementById('winner-text').textContent='Opponent Left';
+  document.getElementById('winner-text').style.color='#ffaa00';
+  document.getElementById('winner-sub').textContent='Your opponent disconnected.';
   document.getElementById('winner-banner').classList.add('show');
 });
-socket.on('error_msg', d => { document.getElementById('msg-bar').textContent = `⚠️ ${d.msg}`; });
+socket.on('error_msg', d => { document.getElementById('msg-bar').textContent=`⚠️ ${d.msg}`; });
+
+// ── Init bot deck selector on load ──
+window.addEventListener('load', () => buildDeckSelector('bot-deck-sel','bot'));
 </script>
 </body>
 </html>
