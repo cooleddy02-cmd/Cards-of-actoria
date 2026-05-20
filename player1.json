@@ -1,27 +1,72 @@
-so[
-  {
-    "name": "Greed",
-    "atk": 6,
-    "def": 4
-  },
-  {
-    "name": "Atlas",
-    "atk": 4,
-    "def": 5
-  },
-  {
-    "name": "Greed",
-    "atk": 6,
-    "def": 4
-  },
-  {
-    "name": "Blackhole",
-    "atk": 7,
-    "def": 3
-  },
-  {
-    "name": "Mirror",
-    "atk": 2,
-    "def": 7
-  }
+s[
+  [
+    "Breaker",
+    "blackhole",
+    "atlas",
+    "Fisher",
+    "blackholeAtlas",
+    "Mysteriousash",
+    "clocksmilk",
+    "clock",
+    "Milktoken",
+    "greedatlas",
+    "Mirror",
+    "greed"
+  ],
+  [
+    "atlas",
+    "clocksmilk",
+    "greedatlas",
+    "Fisher",
+    "clock",
+    "greed",
+    "Mysteriousash",
+    "Milktoken",
+    "Breaker",
+    "Mirror",
+    "blackhole",
+    "blackholeAtlas"
+  ],
+  [
+    "atlas",
+    "Milktoken",
+    "greed",
+    "clock",
+    "blackhole",
+    "blackholeAtlas",
+    "Mysteriousash",
+    "Fisher",
+    "clocksmilk",
+    "greedatlas",
+    "Mirror",
+    "Breaker"
+  ],
+  [
+    "atlas",
+    "Mirror",
+    "clocksmilk",
+    "blackhole",
+    "blackholeAtlas",
+    "clock",
+    "Mysteriousash",
+    "Fisher",
+    "Breaker",
+    "greedatlas",
+    "Milktoken",
+    "greed"
+  ],
+  [
+    "Mysteriousash",
+    "blackhole",
+    "blackholeAtlas",
+    "clocksmilk",
+    "Milktoken",
+    "greed",
+    "Breaker",
+    "Mirror",
+    "greedatlas",
+    "Fisher",
+    "atlas",
+    "clock"
+  ]
 ]
