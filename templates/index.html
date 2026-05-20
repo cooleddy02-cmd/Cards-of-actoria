@@ -242,7 +242,7 @@
     <span class="icon">🌐</span>
     <div class="info"><h3>Play Online</h3><p>Challenge a real player in real-time</p></div>
   </button>
-  <button class="menu-btn" id="menu-bot-btn" onclick="showScreen('bot-screen')">
+  <button class="menu-btn" id="menu-bot-btn" onclick="goBotScreen()">
     <span class="icon">🤖</span>
     <div class="info"><h3>Play vs Bot</h3><p>Practice against AI. Earn 💎 gems on wins!</p></div>
   </button>
@@ -557,6 +557,12 @@ function selectDiff(d) {
   selectedDiff = d;
   ['easy','medium','hard'].forEach(x =>
     document.getElementById('diff-'+x).classList.toggle('selected', x===d));
+}
+
+function goBotScreen() {
+  buildDeckSelector('bot-deck-sel', 'bot');
+  if (session.username) document.getElementById('bot-name').value = session.username;
+  showScreen('bot-screen');
 }
 
 function startBot() {
