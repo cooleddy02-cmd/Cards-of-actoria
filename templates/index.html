@@ -894,7 +894,16 @@ function renderMenuProfile() {
 // ── PWA: service worker + install prompt ──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('SW reg failed', err));
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      // Force immediate update check so cached old HTML gets evicted
+      reg.update();
+      if (reg.waiting) reg.waiting.postMessage({type:'SKIP_WAITING'});
+    }).catch(err => console.warn('SW reg failed', err));
+    // When a new SW takes over, reload once to pick up fresh HTML
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloaded) return; reloaded = true; window.location.reload();
+    });
   });
 }
 let _deferredInstall = null;

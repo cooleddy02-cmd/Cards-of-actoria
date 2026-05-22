@@ -2,7 +2,7 @@
 // Network-first for app shell (so updates land immediately),
 // cache-first for icons/manifest (rarely change),
 // pass-through for socket.io and dynamic /decks (never cache).
-const CACHE = 'clockpapi-v1';
+const CACHE = 'factoria-v3';
 const STATIC_ASSETS = [
   '/static/manifest.json',
   '/static/icons/icon-192.svg',
@@ -12,6 +12,9 @@ const STATIC_ASSETS = [
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC_ASSETS)).then(() => self.skipWaiting()));
+});
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
