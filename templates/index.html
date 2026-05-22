@@ -884,13 +884,15 @@ function playAsGuest() {
 }
 
 socket.on('auth_ok', d => {
-  session.username    = d.username;
-  session.gems        = d.gems;
-  session.owned_decks = d.owned_decks;
-  session.wins        = d.wins;
-  session.losses      = d.losses;
-  session.player_id   = d.player_id || null;
-  session.title       = d.title || null;
+  session.username       = d.username;
+  session.gems           = d.gems;
+  session.owned_decks    = d.owned_decks || ['basic'];
+  session.custom_decks   = d.custom_decks || [];
+  session.wins           = d.wins;
+  session.losses         = d.losses;
+  session.player_id      = d.player_id || null;
+  session.title          = d.title || null;
+  session.equipped_title = d.equipped_title || null;
   renderMenuProfile();
   showScreen('menu-screen');
 });
