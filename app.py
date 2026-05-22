@@ -3,6 +3,7 @@ from flask_socketio import SocketIO, emit, join_room as sio_join_room, join_room
 import random, string, copy, uuid, json, hashlib, os
 from cards import (CARDLIST, SPECIAL_CARDS, ALL_CARDS,
                    DECK_WEIGHTS, DECK_INFO, GEM_REWARDS, BOT_NAMES, BOT_DECKS)
+from cards import DECK_POOLS
 
 ACCESS_CODE = "CLOCKPAPI"
 ADMIN_CODE  = "CYNIRZPAPI"
@@ -105,17 +106,20 @@ def _is_dead(card):
         return card['def'] < 0
     return card['def'] <= 0
 
+_CARD_BY_NAME = {c['name']: c for c in CARDLIST}
+
 def draw_from_deck(deck_type='basic'):
     if deck_type in CUSTOM_DECKS_RUNTIME:
         return new_card(random.choice(CUSTOM_DECKS_RUNTIME[deck_type]))
+    if deck_type in DECK_POOLS:
+        pool = [_CARD_BY_NAME[n] for n in DECK_POOLS[deck_type]
+                if n in _CARD_BY_NAME
+                and not _CARD_BY_NAME[n].get('no_draw')
+                and not _CARD_BY_NAME[n].get('no_normal_play')]
+        if pool:
+            return new_card(random.choice(pool))
     drawable = [c for c in CARDLIST if not c.get('no_draw') and not c.get('no_normal_play')]
-    weights  = DECK_WEIGHTS.get(deck_type, {})
-    if not weights:
-        return new_card(random.choice(drawable))
-    pool = []
-    for c in drawable:
-        pool.extend([c] * weights.get(c['name'], 1))
-    return new_card(random.choice(pool))
+    return new_card(random.choice(drawable))
 
 def deal_hand(deck_type='basic', k=5):
     return [draw_from_deck(deck_type) for _ in range(k)]

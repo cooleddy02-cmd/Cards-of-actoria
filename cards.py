@@ -163,34 +163,55 @@ SPECIAL_CARDS = [
 
 ALL_CARDS = CARDLIST + SPECIAL_CARDS
 
-DECK_WEIGHTS = {
-    'basic':    {},
-    'brawler':  {'Hate':4,'Bolt':4,'Diamond':4,'Sword':4,'Wrath':4,'Duraza':4,'Side':4,'Blackhole':4},
-    'guardian': {'Guard':4,'Health':4,'Love':4,'CoreStars':4,'Breaker':4,'CancelBlock':4,'Block':4},
-    'mystic':   {'Clock':4,'Mirror':4,'Fisher':4,'Undying':4,'Clocksmilk':4,'Unknown':4},
-    'chaos':    {'Star':4,'v1-8':4,'Greed':4,'Equal':4,'Circus':4,'Mysteriousash':4},
-    'storm':    {'Amegma':5,'Ice':5,'Bolt':4,'Star':3,'Blackhole':3,'Hate':2},
-    'dream':    {'Sad Dream':5,'Unknown':4,'Greed':4,'Mirror':4,'Circus':3,'Equal':3},
-    'titan':    {'Golem':5,'Duraza':4,'Block':4,'Health':4,'Guard':3,'Breaker':3},
+DECK_WEIGHTS = {}
+
+DECK_POOLS = {
+    'basic':    ['Sword','Guard','Health','Clock','Star','Circus','Block','Bolt',
+                 'Mirror','Greed','Apple','Side','Love','Diamond'],
+    'brawler':  ['Sword','Diamond','Hate','Wrath','Bolt','Duraza','Side','Sharpen',
+                 'Rage','Double Strike','Pierce','Bloodlust'],
+    'guardian': ['Guard','Health','Love','Block','Shield','Regenerate','Iron DEF',
+                 'Fortify','CoreStars','Breaker','Resilient','CancelBlock'],
+    'mystic':   ['Clock','Mirror','Fisher','Undying','Reflect','Rewind','Bound',
+                 'Banish','Quick Effect','Mirror Stats','Time Steal','Unknown'],
+    'chaos':    ['Star','v1-8','Greed','Equal','Circus','Flip','Reroll','Variable',
+                 'Greed Draw','Bounce','Pass On','Mysteriousash'],
+    'storm':    ['Amegma','Ice','Bolt','Freeze','Frost Breath','Decay','Ash Rising',
+                 'Sun','Sunray','Sorrow','Sweep','Blackhole'],
+    'dream':    ['Sad Dream','Nightmare','Sorrow','Soul Drain','Mirror','Mirror Stats',
+                 'Bound','Decay','Greed','Circus','Equal','Unknown'],
+    'titan':    ['Golem','Duraza','Block','Iron DEF','Fortify','Resilient',
+                 'Block Recharge','Apple','Ice Shield','Atlas Summon','Health','Guard'],
+}
+
+DECK_COUNTERS = {
+    'basic':    'Balanced — no strong counter, but no edge either.',
+    'brawler':  'Beats Guardian (raw pierce). Loses to Storm (status slows).',
+    'guardian': 'Beats Storm (blocks + heals through it). Loses to Brawler.',
+    'mystic':   'Beats Dream (cancels curses). Loses to Chaos (disruption).',
+    'chaos':    'Beats Mystic (breaks combos). Loses to Titan (durable).',
+    'storm':    'Beats Brawler (slows attackers). Loses to Guardian.',
+    'dream':    'Beats Titan (curses bypass armor). Loses to Mystic.',
+    'titan':    'Beats Chaos (weathers RNG). Loses to Dream (curses).',
 }
 
 DECK_INFO = [
     {'id':'basic',   'name':'Starter Deck', 'icon':'🃏','cost':0,
-     'desc':'A balanced mix of all cards. Perfect for learning.'},
+     'desc':'Balanced mix. Perfect for learning. ⚖️ No counter advantage.'},
     {'id':'brawler', 'name':'Brawler Deck', 'icon':'⚔️','cost':15,
-     'desc':'High-damage cards. Pierce, cleave, and overwhelm your opponent.'},
+     'desc':'Raw ATK + pierce. ✅ Beats Guardian.  ❌ Loses to Storm.'},
     {'id':'guardian','name':'Guardian Deck','icon':'🛡️','cost':15,
-     'desc':'Defensive powerhouse. Block, regenerate, and outlast your foes.'},
+     'desc':'Block + regen. ✅ Beats Storm.  ❌ Loses to Brawler.'},
     {'id':'mystic',  'name':'Mystic Deck',  'icon':'🔮','cost':20,
-     'desc':'Ability-focused. Trap, reflect, and control the battlefield.'},
+     'desc':'Cancel + control. ✅ Beats Dream.  ❌ Loses to Chaos.'},
     {'id':'chaos',   'name':'Chaos Deck',   'icon':'🌀','cost':25,
-     'desc':'Unpredictable wildcards. High risk, high reward.'},
+     'desc':'RNG disruption. ✅ Beats Mystic.  ❌ Loses to Titan.'},
     {'id':'storm',   'name':'Storm Deck',   'icon':'🌩️','cost':20,
-     'desc':'Fast and aggressive. Status effects, pierce, and raw power.'},
+     'desc':'Status + AoE. ✅ Beats Brawler.  ❌ Loses to Guardian.'},
     {'id':'dream',   'name':'Dream Deck',   'icon':'🌙','cost':25,
-     'desc':'Deceptive and punishing. Curses, mirrors, and mind games.'},
+     'desc':'Curse + mirror. ✅ Beats Titan.  ❌ Loses to Mystic.'},
     {'id':'titan',   'name':'Titan Deck',   'icon':'🏔️','cost':30,
-     'desc':'Unstoppable defense. Golem, heavy armor, and slow overwhelming force.'},
+     'desc':'Heavy defense. ✅ Beats Chaos.  ❌ Loses to Dream.'},
 ]
 
 GEM_REWARDS = {'easy':2,'medium':4,'hard':7}

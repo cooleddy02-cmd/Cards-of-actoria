@@ -660,6 +660,15 @@
   <p class="err" id="gift-err"></p>
 </div>
 
+<!-- ═══ CASINO RULES ═══ -->
+<button id="rules-fab" onclick="openRules()" style="display:none;position:fixed;bottom:16px;left:16px;z-index:50;padding:10px 14px;border-radius:24px;border:none;background:#2a2350;color:#fff;font-weight:600;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.35)">📖 Rules</button>
+
+<div class="overlay" id="rules-overlay" style="max-width:520px;max-height:85vh;overflow-y:auto;gap:10px;text-align:left">
+  <h2 id="rules-title" style="text-align:center;margin:0">📖 Rules</h2>
+  <div id="rules-body" style="font-size:14px;line-height:1.5"></div>
+  <button onclick="document.getElementById('rules-overlay').classList.remove('show')" style="align-self:center;margin-top:6px">Got it</button>
+</div>
+
 <!-- ═══ ADMIN CODE PROMPT ═══ -->
 <div class="overlay" id="admin-prompt-overlay">
   <h2>⚙️ Admin Access</h2>
@@ -705,9 +714,79 @@ const SPEC_SUMMONS = [
 // ═══════════════════════════════════════════════════════
 //  SCREEN ROUTING
 // ═══════════════════════════════════════════════════════
+const RULES_SCREENS = {
+  'casino-screen':      'casino',
+  'slots-screen':       'slots',
+  'bj-screen':          'blackjack',
+  'poker-lobby-screen': 'poker',
+  'poker-table-screen': 'poker',
+};
+
+const RULES_CONTENT = {
+  casino: {title:'📖 Casino — Overview', html:`
+    <p>Welcome to the casino. Wager your 💎 gems across three games:</p>
+    <ul>
+      <li><b>🎰 Slots</b> — Bet 1–1000. Match 3 symbols to win. 7️⃣7️⃣7️⃣ = 50× bet.</li>
+      <li><b>♠️ Blackjack</b> — Bet 5–1000. Get closer to 21 than the dealer without busting. Blackjack pays 2×.</li>
+      <li><b>🃏 Texas Hold'em</b> — Sit at a table (vs bots or friends), buy in with gems, win the pot.</li>
+    </ul>
+    <p>Tap <b>📖 Rules</b> on any game screen for the full rules of that game.</p>`},
+  slots: {title:'📖 Slots — Rules', html:`
+    <p>Pick a bet (1–1000 💎) and spin. All 3 reels must match to win.</p>
+    <p><b>Payouts (multiplier × bet):</b></p>
+    <ul style="font-family:monospace">
+      <li>7️⃣ 7️⃣ 7️⃣ — <b>50×</b></li>
+      <li>💎 💎 💎 — <b>20×</b></li>
+      <li>⭐ ⭐ ⭐ — <b>10×</b></li>
+      <li>🔔 🔔 🔔 — <b>6×</b></li>
+      <li>🍋 🍋 🍋 — <b>4×</b></li>
+      <li>🍒 🍒 🍒 — <b>2×</b></li>
+      <li>Any other combo — lose your bet</li>
+    </ul>
+    <p>Gems are deducted on spin; winnings are credited instantly.</p>`},
+  blackjack: {title:'📖 Blackjack — Rules', html:`
+    <p>You vs the dealer. Closest to 21 without going over wins.</p>
+    <ul>
+      <li><b>Card values:</b> 2–10 = face, J/Q/K = 10, A = 1 or 11 (whichever is best).</li>
+      <li><b>Hit</b> — draw another card.</li>
+      <li><b>Stand</b> — end your turn; dealer plays.</li>
+      <li><b>Bust</b> (over 21) — instant loss.</li>
+      <li><b>Dealer</b> hits until reaching 17 or higher.</li>
+    </ul>
+    <p><b>Payouts:</b> Win = <b>2× bet</b>. Push (tie) = bet returned. Loss = bet forfeit.</p>
+    <p>Bet range: 5–1000 💎. Your bet is escrowed on deal.</p>`},
+  poker: {title:"📖 Texas Hold'em — Rules", html:`
+    <p>Standard No-Limit Texas Hold'em.</p>
+    <ul>
+      <li>Each player gets <b>2 hole cards</b>. Then <b>5 community cards</b> are dealt in 3 rounds (flop / turn / river).</li>
+      <li>Make the best 5-card poker hand from any combination of your 2 + the 5 community cards.</li>
+      <li><b>Actions:</b> Fold, Check (if no bet), Call, Raise / Bet, All-In.</li>
+      <li><b>Blinds</b> rotate each hand: small blind + big blind (2× small).</li>
+      <li><b>Showdown:</b> highest hand wins the pot.</li>
+    </ul>
+    <p><b>Hand rankings (best → worst):</b><br>
+       Straight Flush → Four of a Kind → Full House → Flush → Straight → Three of a Kind → Two Pair → One Pair → High Card</p>
+    <p><b>Buy-in / chips:</b> You buy in with gems; remaining chips are refunded as gems when you leave the table.</p>
+    <p><i>Note: this version uses a single main pot (no side pots) — multi-way all-ins are simplified.</i></p>`},
+};
+
+function openRules() {
+  const active = document.querySelector('.screen.active');
+  const key = (active && RULES_SCREENS[active.id]) || 'casino';
+  const r = RULES_CONTENT[key];
+  document.getElementById('rules-title').textContent = r.title;
+  document.getElementById('rules-body').innerHTML = r.html;
+  document.getElementById('rules-overlay').classList.add('show');
+}
+
+function _updateRulesFab(id) {
+  document.getElementById('rules-fab').style.display = RULES_SCREENS[id] ? 'block' : 'none';
+}
+
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  _updateRulesFab(id);
 }
 
 function goHome() {
