@@ -102,6 +102,20 @@ CARDLIST = [
         {"id":"ice_counter_freeze","name":"Ice Shield","desc":"When hit: 50% chance to freeze the attacker until your next turn ends."},
         {"id":"frost_breath","name":"Frost Breath","desc":"Active: freeze all enemy cards for 1 turn, but they take 50% less damage for 2 turns."},
         {"id":"ice_cream_ability","name":"Ice Cream","desc":"Active: give a card +2 ATK +1 DEF for 2 turns and heal yourself 2 HP. 5-turn cooldown."}]},
+    {"name":"Ace",        "atk":5,"def":5, "no_normal_play":True, "specials":[
+        {"id":"ace_sac","name":"Sacrifice Summon","desc":"Summon by sacrificing 2 cards from your field. Cannot be played normally."}]},
+    {"name":"Lich",       "atk":4,"def":3, "no_normal_play":True, "specials":[
+        {"id":"lich_sac","name":"Sacrifice Summon","desc":"Summon by sacrificing 3 cards from your field. Cannot be played normally."},
+        {"id":"lich_def_leech","name":"Soul Drain","desc":"Gains DEF equal to half the damage it deals."},
+        {"id":"lich_death_buff","name":"Death Boon","desc":"When destroyed, all remaining ally cards gain +1 ATK +1 DEF."}]},
+    {"name":"Omega",      "atk":4,"def":10, "no_normal_play":True, "specials":[
+        {"id":"omega_sac","name":"Sacrifice Summon","desc":"Summon by sacrificing 3 cards from your field. Cannot be played normally."},
+        {"id":"omega_end_dmg","name":"Omega Pulse","desc":"Each of your turns: deals 1 damage to the opponent."},
+        {"id":"omega_atk_lock","name":"Absolute Force","desc":"ATK cannot go below its base amount."}]},
+    {"name":"Black Hole", "atk":0,"def":15, "no_normal_play":True, "specials":[
+        {"id":"bhole_sac","name":"Sacrifice Summon","desc":"Summon by sacrificing 3 cards from your field. Cannot be played normally."},
+        {"id":"bhole_pull","name":"Void Pull","desc":"Enemy cards can only attack this card."},
+        {"id":"bhole_atlas_summon","name":"Atlas Summon","desc":"Once per turn: summon Atlas BHH to your field, lose 4 HP."}]},
 ]
 
 SPECIAL_CARDS = [
@@ -115,6 +129,36 @@ SPECIAL_CARDS = [
         {"id":"phoenix_burn","name":"Scorch","desc":"On attack: target gains Burn (-1 DEF/turn for 3 turns)."}]},
     {"name":"BlackholeAtlas","atk":6,"def":6,"no_draw":True,"specials":[]},
     {"name":"GreedAtlas",   "atk":5,"def":5,"no_draw":True,"specials":[]},
+    {"name":"Trio-Sword",  "atk":4,"def":2, "no_draw":True,"evo":True, "specials":[
+        {"id":"no_draw_flag","name":"Special Only","desc":"Cannot be drawn normally."},
+        {"id":"trio_sword_tri","name":"Triple Strike","desc":"Attacks left, middle, and right of opponent's field separately. Not counted as AoE."},
+        {"id":"no_sacrifice","name":"No Sacrifice","desc":"Cannot be sacrificed."}]},
+    {"name":"The Star",    "atk":0,"def":3, "no_draw":True,"evo":True, "specials":[
+        {"id":"no_draw_flag","name":"Special Only","desc":"Cannot be drawn normally."},
+        {"id":"guard_immunity","name":"Star Shield","desc":"Cannot take damage or be destroyed for its first 2 turns on the field."},
+        {"id":"star_col_dmg","name":"Column Burn","desc":"The enemy card in the same column takes 2 damage every turn."},
+        {"id":"star_aoe_block","name":"Anti-AoE","desc":"While on field, all enemy AoE attacks are negated."},
+        {"id":"no_sacrifice","name":"No Sacrifice","desc":"Cannot be sacrificed."},
+        {"id":"no_revive","name":"No Revive","desc":"Cannot be revived."}]},
+    {"name":"Atlas BHH",   "atk":0,"def":10,"no_draw":True,"evo":True, "specials":[
+        {"id":"no_draw_flag","name":"Special Only","desc":"Cannot be drawn normally."},
+        {"id":"guard_immunity","name":"Heavy Armor","desc":"Cannot take damage or be destroyed for its first 2 turns on the field."},
+        {"id":"atlas_bhh_pull","name":"Atlas Pull","desc":"Enemy cards can only attack this card."},
+        {"id":"atlas_bhh_self_pull","name":"Gravity Well","desc":"Once: destroy this card to send one enemy field card back to their hand."},
+        {"id":"atlas_bhh_death_dmg","name":"Collapse","desc":"When destroyed, owner takes 2 damage."},
+        {"id":"no_revive","name":"No Revive","desc":"Cannot be revived."}]},
+    {"name":"Atlas Greed", "atk":3,"def":3, "no_draw":True,"evo":True, "specials":[
+        {"id":"no_draw_flag","name":"Special Only","desc":"Cannot be drawn normally."},
+        {"id":"atlas_greed_draw","name":"Endless Greed","desc":"Each turn: draw +1 extra card. Does not stack with other Greed cards."},
+        {"id":"atlas_greed_death_dmg","name":"Greed's Toll","desc":"When destroyed, owner takes 3 damage."},
+        {"id":"atlas_greed_nodraw","name":"Lockout","desc":"Active (once per 2 turns): force your opponent to skip their next draw."}]},
+    {"name":"Angel of End","atk":0,"def":15,"block":4,"no_draw":True,"evo":True, "specials":[
+        {"id":"no_draw_flag","name":"Special Only","desc":"Cannot be drawn normally."},
+        {"id":"angel_no_defuse","name":"Inviolable","desc":"Cannot be countered by hand traps."},
+        {"id":"angel_block_kill","name":"Block Guard","desc":"Instant-kill effects only work when all blocks are gone."},
+        {"id":"angel_dynamic_atk","name":"Apex Power","desc":"ATK equals the highest ATK of any card on the field."},
+        {"id":"golem_banish","name":"Banished","desc":"When destroyed, it is banished — no death effects trigger."},
+        {"id":"angel_emp","name":"E.M.P.","desc":"Once, when DEF ≤ 10 and your HP is below half: remove all specials from every other card for 4 turns."}]},
 ]
 
 ALL_CARDS = CARDLIST + SPECIAL_CARDS

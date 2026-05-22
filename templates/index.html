@@ -33,6 +33,8 @@
     .btn-gold{background:#996600} .btn-gold:hover{background:#774400}
     .btn-green{background:#1a8844} .btn-green:hover{background:#116633}
     .btn-sm{padding:7px 14px;font-size:.8rem}
+    .sac-hand-card{border:2px solid #ff3333!important;background:#1a0a0a!important}
+    .badge.emp{background:#112244;color:#55aaff;border:1px solid #224488}
     .btn-wide{width:100%}
     .btn-row{display:flex;gap:10px}
     .btn-row button{flex:1}
@@ -379,6 +381,7 @@
   </div>
   <div class="action-bar">
     <button id="btn-end-play" onclick="endPlayPhase()" disabled>End Play →</button>
+    <button id="btn-spec-summon" onclick="openSpecSummon()" disabled class="btn-blue">⚡ Summons</button>
     <button id="btn-direct"   onclick="directAttack()"  disabled class="btn-sec">Direct Attack</button>
     <button id="btn-end-turn" onclick="endTurn()"        disabled class="btn-sec">End Turn ✓</button>
     <button id="btn-cancel-ab" onclick="cancelAbility()" style="display:none" class="btn-sec">✕ Cancel</button>
@@ -390,6 +393,34 @@
   <button id="ab-close" onclick="closeAbility()">✕</button>
   <h3 id="ab-card-name">Card</h3>
   <div id="ab-list"></div>
+</div>
+
+<!-- ═══ SACRIFICE OVERLAY ═══ -->
+<div class="overlay" id="sac-overlay" style="max-height:90vh;overflow-y:auto;gap:8px;max-width:360px">
+  <h2 style="color:#ff3333">✨ Ritual Summon</h2>
+  <p id="sac-title" style="color:#ffcc44;font-weight:bold;font-size:.9rem"></p>
+  <p id="sac-desc"  style="color:#aaa;font-size:.8rem;margin-top:-4px"></p>
+  <div id="sac-field-section">
+    <div style="color:#888;font-size:.75rem;margin-bottom:4px">Field cards to sacrifice:</div>
+    <div id="sac-field-list" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+  <div id="sac-hand-section" style="display:none;margin-top:6px">
+    <div style="color:#888;font-size:.75rem;margin-bottom:4px">Hand cards to sacrifice:</div>
+    <div id="sac-hand-list" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+  <p id="sac-err" class="err" style="min-height:16px"></p>
+  <div class="btn-row" style="margin-top:4px">
+    <button id="sac-confirm" class="btn-gold" onclick="confirmSacrifice()">Summon ✨</button>
+    <button class="btn-sec" onclick="closeSacOverlay()">Cancel</button>
+  </div>
+</div>
+
+<!-- ═══ SPECIAL SUMMON OVERLAY ═══ -->
+<div class="overlay" id="spec-summon-overlay" style="max-width:340px;gap:10px">
+  <h2 style="color:#55aaff">⚡ Special Summons</h2>
+  <p class="sub">Pick a card to summon</p>
+  <div id="spec-summon-list" style="display:flex;flex-direction:column;gap:8px;margin-top:4px"></div>
+  <button class="btn-sec btn-sm" style="margin-top:4px" onclick="closeSpecSummon()">Cancel</button>
 </div>
 
 <!-- ═══ HAND TRAP OVERLAY ═══ -->
@@ -475,7 +506,15 @@ let selectedDiff = 'easy';
 
 const ACTIVE_ABILITIES = ['circus_bounce','apple_buff','sword_buff','milk_summon','milk_drink',
   'greed_atlas','fisher_pull','fisher_catch','core_dark_star','undying_donut',
-  'sad_send','frost_breath','ice_cream_ability'];
+  'sad_send','frost_breath','ice_cream_ability',
+  'atlas_bhh_self_pull','bhole_atlas_summon','atlas_greed_nodraw','angel_emp'];
+
+const SAC_REQS = { 'Ace': 2, 'Lich': 3, 'Omega': 3, 'Black Hole': 3 };
+const SPEC_SUMMONS = [
+  { name:'Trio-Sword', desc:'Sacrifice: Sword + 2 field cards', fieldReq:3, needSword:true },
+  { name:'The Star',   desc:'Sacrifice: Sun + 2 field cards',   fieldReq:3, needSun:true  },
+  { name:'Angel of End', desc:'Sacrifice: 2 evo field cards + 2 more (field or hand)', fieldReq:2, handReq:2, needEvo:2 },
+];
 
 // ═══════════════════════════════════════════════════════
 //  SCREEN ROUTING
@@ -777,6 +816,7 @@ function renderState(s) {
   const inAttack = isMyTurn && s.phase==='attack';
   document.getElementById('btn-end-play').disabled = !inPlay;
   document.getElementById('btn-end-turn').disabled = !inAttack;
+  document.getElementById('btn-spec-summon').disabled = !(inPlay && s.cards_played < 2);
   const selCard = (inAttack && selectedAttacker!==null) ? s.your_field[selectedAttacker] : null;
   const canDirect = selCard && (
     s.opp_field.length === 0 ||
@@ -797,6 +837,7 @@ function badgesHTML(c) {
   if (c.guard_remaining>0)      b+=`<span class="badge guarded">🛡️${c.guard_remaining}t</span>`;
   if (c.block>0)                b+=`<span class="badge blk">🔷${c.block}</span>`;
   if (c.dark_stars>0)           b+=`<span class="badge star">🌑×${c.dark_stars}</span>`;
+  if ((c.emp_turns||0)>0)       b+=`<span class="badge emp">⚡EMP${c.emp_turns}t</span>`;
   if (c.donuts>0)               b+=`<span class="badge donut">🍩×${c.donuts}</span>`;
   if ((c.fish||[]).length>0)    b+=`<span class="badge fish">🐟${c.fish.map(f=>f==='light'?'🌟':'🌑').join('')}</span>`;
   return b?`<div class="badges">${b}</div>`:'';
@@ -847,10 +888,12 @@ function renderHand(hand, phase, isMyTurn, cardsPlayed) {
   hand.forEach((card,i) => {
     const canPlay=isMyTurn && phase==='play' && cardsPlayed<2;
     const isAbTarget=abilityMode && abilityMode.target_pool==='your_hand';
+    const isSacCard=!!card.no_normal_play;
     const div=document.createElement('div');
-    div.className='hand-card'+(canPlay||isAbTarget?'':' disabled');
+    div.className='hand-card'+(canPlay||isAbTarget?'':' disabled')+(isSacCard?' sac-hand-card':'');
     div.innerHTML=`<div class="cname">${card.name}</div><div class="slabel">ATK / DEF</div><div class="cstats">${card.atk} / ${card.def}</div>${specTagsHTML(card)}`;
     if (isAbTarget) div.addEventListener('click',()=>confirmAbilityTarget(card.uid,'hand'));
+    else if (canPlay && isSacCard) div.addEventListener('click',()=>openSacOverlay(card.name,i,false));
     else if (canPlay) div.addEventListener('click',()=>playCard(i));
     el.appendChild(div);
   });
@@ -931,6 +974,7 @@ function startAbility(id,card,fishType) {
     milk_drink:'your_field',core_dark_star:'opp',
     fisher_catch:fishType==='light'?'all':'opp',undying_donut:'your_field',
     ice_cream_ability:'your_field',
+    atlas_bhh_self_pull:'opp',
   };
   if (id in targetMap) {
     abilityMode.target_pool=targetMap[id];
@@ -1037,6 +1081,117 @@ function openAdminPrompt() {
 function closeAdminPrompt() {
   document.getElementById('admin-prompt-overlay').classList.remove('show');
 }
+// ═══════════════════════════════════════════════════════
+//  SACRIFICE / SPECIAL SUMMON
+// ═══════════════════════════════════════════════════════
+let sacContext = null; // { targetName, handCardIdx, isSpec, specDef }
+
+function openSacOverlay(targetName, handCardIdx, isSpec, specDef) {
+  if (!gameState) return;
+  sacContext = { targetName, handCardIdx: handCardIdx ?? null, isSpec: !!isSpec, specDef: specDef || null };
+  const req = SAC_REQS[targetName];
+  document.getElementById('sac-title').textContent = targetName;
+  if (isSpec && specDef) {
+    document.getElementById('sac-desc').textContent = specDef.desc;
+  } else {
+    document.getElementById('sac-desc').textContent = `Select ${req} field cards to sacrifice.`;
+  }
+  // Build field list
+  const fl = document.getElementById('sac-field-list'); fl.innerHTML = '';
+  (gameState.your_field || []).forEach((card, fi) => {
+    const nosac = (card.specials||[]).some(s => s.id==='no_sacrifice');
+    const row = document.createElement('label');
+    row.style = 'display:flex;align-items:center;gap:8px;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:7px 10px;cursor:' + (nosac ? 'not-allowed' : 'pointer');
+    row.innerHTML = `<input type="checkbox" data-fi="${fi}" ${nosac ? 'disabled' : ''}><span style="flex:1;font-size:.85rem">${card.name} (${card.atk}/${card.def})</span>${nosac ? '<span style="color:#666;font-size:.7rem">No Sac</span>' : ''}`;
+    fl.appendChild(row);
+  });
+  // Hand list for Angel of End
+  const hs = document.getElementById('sac-hand-section');
+  const hl = document.getElementById('sac-hand-list'); hl.innerHTML = '';
+  if (isSpec && specDef && specDef.handReq) {
+    hs.style.display = 'block';
+    (gameState.your_hand || []).forEach((card, hi) => {
+      const nosac = (card.specials||[]).some(s => s.id==='no_sacrifice');
+      const row = document.createElement('label');
+      row.style = 'display:flex;align-items:center;gap:8px;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:7px 10px;cursor:' + (nosac ? 'not-allowed' : 'pointer');
+      row.innerHTML = `<input type="checkbox" data-hi="${hi}" ${nosac ? 'disabled' : ''}><span style="flex:1;font-size:.85rem">${card.name} (${card.atk}/${card.def})</span>`;
+      hl.appendChild(row);
+    });
+  } else {
+    hs.style.display = 'none';
+  }
+  document.getElementById('sac-err').textContent = '';
+  document.getElementById('sac-overlay').classList.add('show');
+}
+
+function closeSacOverlay() {
+  document.getElementById('sac-overlay').classList.remove('show');
+  sacContext = null;
+}
+
+function confirmSacrifice() {
+  if (!sacContext || !gameState) return;
+  const { targetName, handCardIdx, isSpec, specDef } = sacContext;
+  const fieldChecks = [...document.querySelectorAll('#sac-field-list input[type=checkbox]:checked')];
+  const handChecks  = [...document.querySelectorAll('#sac-hand-list  input[type=checkbox]:checked')];
+  const fieldSacs = fieldChecks.map(cb => parseInt(cb.dataset.fi));
+  const handSacs  = handChecks.map(cb => parseInt(cb.dataset.hi));
+  const errEl = document.getElementById('sac-err');
+
+  if (!isSpec) {
+    // Hand card ritual summon
+    const req = SAC_REQS[targetName];
+    if (fieldSacs.length !== req) { errEl.textContent = `Select exactly ${req} field cards.`; return; }
+    socket.emit('sacrifice_summon', { room: roomCode, target_name: targetName,
+      hand_card_index: handCardIdx, field_sacs: fieldSacs, hand_sacs: [] });
+  } else {
+    // Special summon
+    if (specDef.needSword) {
+      const field = gameState.your_field || [];
+      const hasSword = fieldSacs.some(fi => field[fi] && field[fi].name === 'Sword');
+      if (!hasSword) { errEl.textContent = 'Must include a Sword card.'; return; }
+      if (fieldSacs.length !== 3) { errEl.textContent = 'Select exactly 3 field cards (Sword + 2).'; return; }
+    } else if (specDef.needSun) {
+      const field = gameState.your_field || [];
+      const hasSun = fieldSacs.some(fi => field[fi] && field[fi].name === 'Sun');
+      if (!hasSun) { errEl.textContent = 'Must include a Sun card.'; return; }
+      if (fieldSacs.length !== 3) { errEl.textContent = 'Select exactly 3 field cards (Sun + 2).'; return; }
+    } else if (specDef.needEvo) {
+      const field = gameState.your_field || [];
+      const evoCount = fieldSacs.filter(fi => field[fi] && field[fi].evo).length;
+      if (evoCount < 2) { errEl.textContent = 'Need at least 2 evo cards from field.'; return; }
+      if (fieldSacs.length + handSacs.length !== 4) { errEl.textContent = 'Need exactly 4 sacrifices total.'; return; }
+    }
+    socket.emit('sacrifice_summon', { room: roomCode, target_name: targetName,
+      hand_card_index: null, field_sacs: fieldSacs, hand_sacs: handSacs });
+  }
+  closeSacOverlay();
+}
+
+function openSpecSummon() {
+  if (!gameState || gameState.phase !== 'play') return;
+  const list = document.getElementById('spec-summon-list'); list.innerHTML = '';
+  SPEC_SUMMONS.forEach(sd => {
+    const card = document.createElement('div');
+    card.style = 'background:#111;border:1px solid #336699;border-radius:8px;padding:10px 12px';
+    card.innerHTML = `<div style="font-weight:bold;color:#55aaff;margin-bottom:3px">${sd.name}</div>
+      <div style="color:#888;font-size:.78rem;margin-bottom:6px">${sd.desc}</div>
+      <button class="btn-blue btn-sm" onclick="selectSpecSummon('${sd.name}')">Select</button>`;
+    list.appendChild(card);
+  });
+  document.getElementById('spec-summon-overlay').classList.add('show');
+}
+
+function closeSpecSummon() {
+  document.getElementById('spec-summon-overlay').classList.remove('show');
+}
+
+function selectSpecSummon(name) {
+  closeSpecSummon();
+  const specDef = SPEC_SUMMONS.find(s => s.name === name);
+  openSacOverlay(name, null, true, specDef);
+}
+
 document.getElementById('admin-code-input').addEventListener('keydown', e => { if (e.key==='Enter') submitAdminCode(); });
 function submitAdminCode() {
   const code = document.getElementById('admin-code-input').value.trim();

@@ -58,10 +58,14 @@ def new_card(base):
         c['guard_remaining'] = 2
     if _has(c, 'v18_reroll'):
         c['atk'] = random.randint(0, 8)
+    if _has(c, 'omega_atk_lock'):
+        c['base_atk'] = c.get('atk', 0)
     return c
 
 def _buff_atk(card, amount):
     card['atk'] += amount
+    if _has(card, 'omega_atk_lock') and 'base_atk' in card:
+        card['atk'] = max(card['atk'], card['base_atk'])
 
 def _is_dead(card):
     if card.get('base_def', 1) == 0:
@@ -83,6 +87,11 @@ def deal_hand(deck_type='basic', k=5):
 
 def _has(card, sid):
     return any(s['id'] == sid for s in card.get('specials', []))
+
+def _has_eff(card, sid):
+    if card.get('emp_turns', 0) > 0:
+        return False
+    return _has(card, sid)
 
 def _find_by_uid(players, uid):
     for pi, p in enumerate(players):
@@ -131,6 +140,9 @@ def destroy_card(room, room_code, owner_index, field_index,
     if not bypass_guard and card.get('guard_remaining', 0) > 0:
         return False
 
+    if _has(card, 'angel_block_kill') and card.get('block', 0) > 0 and bypass_guard:
+        return False
+
     if _has(card, 'golem_banish'):
         player['field'].pop(field_index)
         _check_win(room, players)
@@ -166,6 +178,14 @@ def destroy_card(room, room_code, owner_index, field_index,
                 ec['block'] = 0; ec['block_disabled'] = True; removed += 1
         if removed:
             opp['hp'] -= removed
+
+    if _has(card, 'atlas_bhh_death_dmg'):
+        player['hp'] -= 2
+    if _has(card, 'atlas_greed_death_dmg'):
+        player['hp'] -= 3
+    if _has(card, 'lich_death_buff'):
+        for fc in player['field']:
+            _buff_atk(fc, 1); fc['def'] += 1
 
     _check_win(room, players)
     return True
@@ -232,15 +252,41 @@ def process_turn_start(room, room_code, active_index):
             msgs.append(f"💔 {card['name']} Sorrow: owner -{4} HP!")
 
         if _has(card, 'sun_aoe') and not sun_done:
-            for ec in opp['field']:
-                if not _has(ec, 'aoe_immune') and not _has(ec, 'duraza_def_lock'):
-                    ec['def'] -= 1
-            sun_done = True; msgs.append(f"☀️ Sun burns all enemy cards!")
+            star_blocks = any(_has(c, 'star_aoe_block') for c in opp['field'])
+            if star_blocks:
+                msgs.append(f"⭐ The Star negated Sun AoE!")
+            else:
+                for ec in opp['field']:
+                    if not _has(ec, 'aoe_immune') and not _has(ec, 'duraza_def_lock'):
+                        ec['def'] -= 1
+                msgs.append(f"☀️ Sun burns all enemy cards!")
+            sun_done = True
 
         if _has(card, 'block_recharge') and tof > 0 and tof % 4 == 0:
             cap = card.get('block_max', 3)
             if card.get('block', 0) < cap and not card.get('block_disabled'):
                 card['block'] = min(card.get('block', 0) + 1, cap)
+
+        if _has(card, 'star_col_dmg') and card.get('guard_remaining', 0) == 0:
+            fi = active['field'].index(card)
+            if fi < len(opp['field']):
+                ec = opp['field'][fi]
+                if ec.get('guard_remaining', 0) == 0 and not _has(ec, 'aoe_immune'):
+                    ec['def'] -= 2
+                    msgs.append(f"⭐ The Star burns {ec['name']} -2 DEF!")
+
+        if _has(card, 'atlas_greed_draw') and not greed_draw_done and not room['first_turns'][active_index]:
+            drawn = draw_from_deck(room.get('player_deck', {}).get(active_index, 'basic'))
+            active['hand'].append(drawn); greed_draw_done = True
+            msgs.append(f"💰 Atlas Greed: extra draw!")
+
+        if _has(card, 'omega_end_dmg') and not room['first_turns'][active_index]:
+            opp['hp'] -= 1
+            msgs.append(f"🔱 {card['name']} Pulse: opp -1 HP!")
+
+        if _has(card, 'angel_dynamic_atk'):
+            all_atks = [c['atk'] for p in players for c in p['field'] if c['uid'] != card['uid']]
+            card['atk'] = max(all_atks) if all_atks else 0
 
     for pi, p in enumerate(players):
         for card in list(p['field']):
@@ -253,6 +299,8 @@ def process_turn_start(room, room_code, active_index):
                 card['guard_remaining'] -= 1
             if card.get('frost_shield_turns', 0) > 0:
                 card['frost_shield_turns'] -= 1
+            if card.get('emp_turns', 0) > 0:
+                card['emp_turns'] -= 1
             if card.get('ice_cream_turns', 0) > 0:
                 card['ice_cream_turns'] -= 1
                 if card['ice_cream_turns'] == 0:
@@ -311,8 +359,35 @@ def _exec_attack(room, room_code, pi, ai, ti):
         room['phase'] = 'attack'
         broadcast_state(room_code); return
 
+    # Trio-Sword triple strike (left / middle / right — not AoE)
+    if _has(atk, 'trio_sword_tri'):
+        field = dpl['field']
+        positions = []
+        if len(field) >= 1: positions.append(0)
+        if len(field) >= 3: positions.append(len(field) // 2)
+        if len(field) >= 2: positions.append(len(field) - 1)
+        positions = list(dict.fromkeys(positions))
+        for pos in positions:
+            if pos < len(dpl['field']):
+                ec = dpl['field'][pos]
+                actual = apply_damage(ec, atk['atk'])
+                if actual > 0: msgs.append(f"⚔️⚔️⚔️ Trio hits {ec['name']} -{actual}!")
+        if not dpl['field']:
+            dpl['hp'] -= atk['atk']; msgs.append(f"⚔️⚔️⚔️ Trio direct -{atk['atk']}!")
+        atk['attacked'] = True
+        _check_deaths(room, room_code, 1 - pi)
+        _check_win(room, players)
+        room['message'] = ' | '.join(msgs[:3]); room['phase'] = 'attack'
+        broadcast_state(room_code); return
+
     # Side AoE
     if _has(atk, 'side_aoe'):
+        star_blocks = any(_has(c, 'star_aoe_block') for c in dpl['field'])
+        if star_blocks:
+            msgs.append(f"⭐ The Star negated {atk['name']}'s AoE!")
+            atk['attacked'] = True
+            room['message'] = ' | '.join(msgs); room['phase'] = 'attack'
+            broadcast_state(room_code); return
         for ec in list(dpl['field']):
             apply_damage(ec, atk['atk'], is_aoe=True)
         msgs.append(f"{atk['name']} sweeps all enemy cards!")
@@ -372,6 +447,10 @@ def _exec_attack(room, room_code, pi, ai, ti):
         actual = apply_damage(tgt, dmg)
         if actual == 0: msgs.append(f"{tgt['name']} blocked!")
         else: msgs.append(f"{atk['name']} hits {tgt['name']} for {actual}!")
+        if _has(atk, 'lich_def_leech') and actual > 0:
+            gain = max(1, actual // 2)
+            atk['def'] += gain
+            msgs.append(f"💀 Lich drains: +{gain} DEF!")
 
     # Duraza double strike — hits twice with full ATK each time
     if _has(atk, 'duraza_dual') and not _has(atk, 'bolt_pierce'):
@@ -618,6 +697,9 @@ def _do_end_turn(room, room_code, pi):
         room['message'] = f"{players[nt]['name']}'s turn — no draw (first turn)."
     elif nt_has_sad:
         room['message'] = f"{players[nt]['name']} can't draw (Sad Dream)!"
+    elif players[nt].get('force_no_draw'):
+        players[nt]['force_no_draw'] = False
+        room['message'] = f"🔒 {players[nt]['name']} can't draw (Lockout)!"
     else:
         drawn = draw_from_deck(decks.get(nt, 'basic'))
         players[nt]['hand'].append(drawn)
@@ -884,6 +966,8 @@ def on_play_card(data):
     if len(player['field']) >= 4:
         emit('error_msg', {'msg': 'Field is full (max 4).'}); return
     if ci < 0 or ci >= len(player['hand']): return
+    if player['hand'][ci].get('no_normal_play'):
+        emit('error_msg', {'msg': f"{player['hand'][ci]['name']} must be sacrifice-summoned — click it to open the ritual."}); return
     pending = {'type':'play_card','player_index':pi,'card_index':ci}
     if _defender_has_qe(room):
         _open_hand_trap(room, room_code, pending); return
@@ -911,6 +995,12 @@ def on_attack(data):
     if ai >= len(players[pi]['field']): return
     if players[pi]['field'][ai].get('attacked'):
         emit('error_msg', {'msg': 'Already attacked.'}); return
+    # Pull check: if opponent has a pull card active, must target it
+    dpl_pull = players[1 - pi]
+    pull_fi = next((fi for fi, c in enumerate(dpl_pull['field'])
+                    if _has(c, 'atlas_bhh_pull') or _has(c, 'bhole_pull')), None)
+    if pull_fi is not None and ti != pull_fi:
+        emit('error_msg', {'msg': "An enemy pull card forces all attacks toward it!"}); return
     pending = {'type':'attack','player_index':pi,'attacker_index':ai,'target_index':ti}
     if _defender_has_qe(room):
         _open_hand_trap(room, room_code, pending); return
@@ -1146,6 +1236,66 @@ def on_use_ability(data):
         room['message'] = f"🍩 {t_card['name']} +1/+1! ({t_card['donuts']}/2 donuts)"
         broadcast_state(room_code)
 
+    elif ability_id == 'atlas_bhh_self_pull':
+        _, sfi, scard = _find_by_uid(players, card_uid)
+        if scard is None or sfi is None or not _has(scard, 'atlas_bhh_self_pull'): return
+        if scard.get('gravity_well_used'):
+            emit('error_msg', {'msg': 'Gravity Well already used.'}); return
+        t_pi, t_fi, t_card = _find_by_uid(players, target_uid)
+        if t_card is None or t_pi == pi:
+            emit('error_msg', {'msg': 'Target enemy cards only.'}); return
+        opp['field'].pop(t_fi)
+        t_card['turns_on_field'] = 0
+        opp['hand'].append(t_card)
+        scard['gravity_well_used'] = True
+        destroy_card(room, room_code, pi, sfi, bypass_guard=True, bypass_phoenix=True)
+        room['message'] = f"🌌 Gravity Well! {t_card['name']} returned to opponent's hand. Atlas BHH self-destructed!"
+        broadcast_state(room_code)
+
+    elif ability_id == 'bhole_atlas_summon':
+        bh = next((c for c in player['field'] if _has(c, 'bhole_atlas_summon')), None)
+        if bh is None: return
+        if bh.get('frozen'): emit('error_msg', {'msg': 'Frozen.'}); return
+        if bh.get('atlas_summon_used_turn') == room['turn_count']:
+            emit('error_msg', {'msg': 'Atlas Summon: once per turn.'}); return
+        if len(player['field']) >= 4:
+            emit('error_msg', {'msg': 'Field full.'}); return
+        base = next((c for c in SPECIAL_CARDS if c['name'] == 'Atlas BHH'), None)
+        if base:
+            player['hp'] -= 4
+            player['field'].append(new_card(base))
+            bh['atlas_summon_used_turn'] = room['turn_count']
+            room['message'] = f"🌌 Atlas BHH summoned! -4 HP."
+            broadcast_state(room_code)
+
+    elif ability_id == 'atlas_greed_nodraw':
+        ag = next((c for c in player['field'] if _has(c, 'atlas_greed_nodraw')), None)
+        if ag is None: return
+        if ag.get('frozen'): emit('error_msg', {'msg': 'Frozen.'}); return
+        if room['turn_count'] - ag.get('nodraw_last_turn', -99) < 2:
+            emit('error_msg', {'msg': 'Lockout: once per 2 turns.'}); return
+        opp['force_no_draw'] = True
+        ag['nodraw_last_turn'] = room['turn_count']
+        room['message'] = f"🔒 Lockout! {opp['name']} cannot draw next turn!"
+        broadcast_state(room_code)
+
+    elif ability_id == 'angel_emp':
+        ang = next((c for c in player['field'] if _has(c, 'angel_emp')), None)
+        if ang is None: return
+        if ang.get('emp_used'):
+            emit('error_msg', {'msg': 'E.M.P. already used.'}); return
+        if ang['def'] > 10:
+            emit('error_msg', {'msg': 'E.M.P. requires DEF ≤ 10.'}); return
+        if player['hp'] >= 10:
+            emit('error_msg', {'msg': 'E.M.P. requires HP below half (< 10).'}); return
+        for p in players:
+            for c in p['field']:
+                if c['uid'] != ang['uid']:
+                    c['emp_turns'] = 4
+        ang['emp_used'] = True
+        room['message'] = "⚡ E.M.P.! All other card effects suspended for 4 turns!"
+        broadcast_state(room_code)
+
     elif ability_id == 'core_dark_star':
         _,_,sc2 = _find_by_uid(players, card_uid)
         if sc2 is None or not _has(sc2,'core_dark_star'): return
@@ -1160,6 +1310,110 @@ def on_use_ability(data):
         t_card['dark_stars']=stars+1; sc2['last_star_turn']=room['turn_count']
         room['message']=f"🌑 Dark Star on {t_card['name']}! ({t_card['dark_stars']} stars)"
         broadcast_state(room_code)
+
+@socketio.on('sacrifice_summon')
+def on_sacrifice_summon(data):
+    room_code     = data.get('room')
+    target_name   = data.get('target_name', '').strip()
+    hand_card_idx = data.get('hand_card_index')
+    field_sacs    = sorted(set(data.get('field_sacs', [])))
+    hand_sacs     = sorted(set(data.get('hand_sacs', [])))
+
+    room = rooms.get(room_code)
+    if not room: return
+    players = room['players']
+    pi = next((i for i,p in enumerate(players) if p['sid']==request.sid), None)
+    if pi is None or pi != room['current_turn'] or room['phase'] != 'play': return
+    if room['cards_played'] >= 2:
+        emit('error_msg', {'msg': 'Already played 2 cards this turn.'}); return
+
+    player = players[pi]
+    if len(player['field']) >= 4:
+        emit('error_msg', {'msg': 'Field is full (max 4).'}); return
+    if any(i < 0 or i >= len(player['field']) for i in field_sacs):
+        emit('error_msg', {'msg': 'Invalid field sacrifice.'}); return
+    if any(i < 0 or i >= len(player['hand']) for i in hand_sacs):
+        emit('error_msg', {'msg': 'Invalid hand sacrifice.'}); return
+
+    def _can_sac(card, for_trio=False):
+        if _has(card, 'no_sacrifice'): return False
+        if _has(card, 'sword_nosac') and not for_trio: return False
+        return True
+
+    # ── Hand-card sacrifice summons (Ace / Lich / Omega / Black Hole) ──
+    if hand_card_idx is not None:
+        if hand_card_idx < 0 or hand_card_idx >= len(player['hand']): return
+        card_in_hand = player['hand'][hand_card_idx]
+        if card_in_hand['name'] != target_name or not card_in_hand.get('no_normal_play'):
+            emit('error_msg', {'msg': 'Invalid ritual card.'}); return
+        req = {'Ace': 2, 'Lich': 3, 'Omega': 3, 'Black Hole': 3}.get(target_name)
+        if req is None:
+            emit('error_msg', {'msg': 'Unknown ritual card.'}); return
+        if len(field_sacs) != req:
+            emit('error_msg', {'msg': f'Must sacrifice exactly {req} field cards.'}); return
+        for fi in field_sacs:
+            if not _can_sac(player['field'][fi]):
+                emit('error_msg', {'msg': f"{player['field'][fi]['name']} cannot be sacrificed."}); return
+        for fi in sorted(field_sacs, reverse=True):
+            destroy_card(room, room_code, pi, fi, bypass_guard=True, bypass_phoenix=True, skip_on_destroy=True)
+        hand_card = player['hand'].pop(hand_card_idx)
+        hand_card['attacked'] = False; hand_card['turns_on_field'] = 0
+        if _has(hand_card, 'omega_atk_lock'):
+            hand_card['base_atk'] = hand_card.get('atk', 0)
+        player['field'].append(hand_card)
+        room['cards_played'] += 1
+        room['message'] = f"✨ {player['name']} ritual-summoned {target_name}!"
+        broadcast_state(room_code); return
+
+    # ── Special summons (Trio-Sword / The Star / Angel of End) ──
+    base = next((c for c in SPECIAL_CARDS if c['name'] == target_name), None)
+    if base is None:
+        emit('error_msg', {'msg': 'Unknown special summon.'}); return
+
+    if target_name == 'Trio-Sword':
+        if len(field_sacs) != 3:
+            emit('error_msg', {'msg': 'Trio-Sword: Sword + 2 other field cards required.'}); return
+        sword_fi = next((fi for fi in field_sacs if player['field'][fi]['name'] == 'Sword'), None)
+        if sword_fi is None:
+            emit('error_msg', {'msg': 'Must include Sword in sacrifice.'}); return
+        for fi in field_sacs:
+            if fi != sword_fi and not _can_sac(player['field'][fi], for_trio=False):
+                emit('error_msg', {'msg': f"{player['field'][fi]['name']} cannot be sacrificed."}); return
+
+    elif target_name == 'The Star':
+        if len(field_sacs) != 3:
+            emit('error_msg', {'msg': 'The Star: Sun + 2 other field cards required.'}); return
+        sun_fi = next((fi for fi in field_sacs if player['field'][fi]['name'] == 'Sun'), None)
+        if sun_fi is None:
+            emit('error_msg', {'msg': 'Must include Sun in sacrifice.'}); return
+        for fi in field_sacs:
+            if fi != sun_fi and not _can_sac(player['field'][fi]):
+                emit('error_msg', {'msg': f"{player['field'][fi]['name']} cannot be sacrificed."}); return
+
+    elif target_name == 'Angel of End':
+        if len(field_sacs) + len(hand_sacs) != 4:
+            emit('error_msg', {'msg': 'Angel of End: exactly 4 sacrifices required.'}); return
+        evo_count = sum(1 for fi in field_sacs if player['field'][fi].get('evo'))
+        if evo_count < 2:
+            emit('error_msg', {'msg': 'Angel of End: need at least 2 evo cards from field.'}); return
+        for fi in field_sacs:
+            if not _can_sac(player['field'][fi]):
+                emit('error_msg', {'msg': f"{player['field'][fi]['name']} cannot be sacrificed."}); return
+        for hi in hand_sacs:
+            if _has(player['hand'][hi], 'no_sacrifice'):
+                emit('error_msg', {'msg': f"{player['hand'][hi]['name']} cannot be sacrificed."}); return
+    else:
+        emit('error_msg', {'msg': 'Cannot special summon that card.'}); return
+
+    for fi in sorted(field_sacs, reverse=True):
+        destroy_card(room, room_code, pi, fi, bypass_guard=True, bypass_phoenix=True, skip_on_destroy=True)
+    for hi in sorted(hand_sacs, reverse=True):
+        player['hand'].pop(hi)
+    new_c = new_card(base)
+    player['field'].append(new_c)
+    room['cards_played'] += 1
+    room['message'] = f"✨ {player['name']} summoned {target_name}!"
+    broadcast_state(room_code)
 
 @socketio.on('disconnect')
 def on_disconnect():
