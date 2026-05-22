@@ -448,10 +448,13 @@ def _exec_attack(room, room_code, pi, ai, ti):
                 room['phase'] = 'attack'
                 broadcast_state(room_code); return
 
-    # Direct
+    # Direct — only cards with explicit direct-attack ability can target the player
     if ti is None:
-        if not _has(atk, 'wrath_direct') and not _has(atk, 'amegma_free_attack') and dpl['field']:
-            room['message'] = "Can't attack directly — opponent has cards!"
+        if not _has(atk, 'wrath_direct') and not _has(atk, 'amegma_free_attack'):
+            if dpl['field']:
+                room['message'] = "Can't attack directly — opponent has cards!"
+            else:
+                room['message'] = f"{atk['name']} can't attack the player directly."
             room['phase'] = 'attack'; broadcast_state(room_code); return
         dpl['hp'] -= atk['atk']
         msgs.append(f"{atk['name']} deals {atk['atk']} direct damage!")
@@ -1439,6 +1442,26 @@ def on_sacrifice_summon(data):
             emit('error_msg', {'msg': 'Must include Sun in sacrifice.'}); return
         for fi in field_sacs:
             if fi != sun_fi and not _can_sac(player['field'][fi]):
+                emit('error_msg', {'msg': f"{player['field'][fi]['name']} cannot be sacrificed."}); return
+
+    elif target_name == 'Atlas BHH':
+        if len(field_sacs) != 3:
+            emit('error_msg', {'msg': 'Atlas BHH: Blackhole + 2 other field cards required.'}); return
+        bh_fi = next((fi for fi in field_sacs if player['field'][fi]['name'] == 'Blackhole'), None)
+        if bh_fi is None:
+            emit('error_msg', {'msg': 'Must include Blackhole in sacrifice.'}); return
+        for fi in field_sacs:
+            if fi != bh_fi and not _can_sac(player['field'][fi]):
+                emit('error_msg', {'msg': f"{player['field'][fi]['name']} cannot be sacrificed."}); return
+
+    elif target_name == 'Atlas Greed':
+        if len(field_sacs) != 3:
+            emit('error_msg', {'msg': 'Atlas Greed: Greed + 2 other field cards required.'}); return
+        greed_fi = next((fi for fi in field_sacs if player['field'][fi]['name'] == 'Greed'), None)
+        if greed_fi is None:
+            emit('error_msg', {'msg': 'Must include Greed in sacrifice.'}); return
+        for fi in field_sacs:
+            if fi != greed_fi and not _can_sac(player['field'][fi]):
                 emit('error_msg', {'msg': f"{player['field'][fi]['name']} cannot be sacrificed."}); return
 
     elif target_name == 'Angel of End':

@@ -734,6 +734,8 @@ const SAC_REQS = { 'Ace': 2, 'Lich': 3, 'Omega': 3, 'Black Hole': 3 };
 const SPEC_SUMMONS = [
   { name:'Trio-Sword', desc:'Sacrifice: Sword + 2 field cards', fieldReq:3, needSword:true },
   { name:'The Star',   desc:'Sacrifice: Sun + 2 field cards',   fieldReq:3, needSun:true  },
+  { name:'Atlas BHH',  desc:'Sacrifice: Blackhole + 2 field cards', fieldReq:3, needBlackhole:true },
+  { name:'Atlas Greed',desc:'Sacrifice: Greed + 2 field cards',     fieldReq:3, needGreed:true     },
   { name:'Angel of End', desc:'Sacrifice: 2 evo field cards + 2 more (field or hand)', fieldReq:2, handReq:2, needEvo:2 },
 ];
 
@@ -1636,6 +1638,16 @@ function confirmSacrifice() {
       const hasSun = fieldSacs.some(fi => field[fi] && field[fi].name === 'Sun');
       if (!hasSun) { errEl.textContent = 'Must include a Sun card.'; return; }
       if (fieldSacs.length !== 3) { errEl.textContent = 'Select exactly 3 field cards (Sun + 2).'; return; }
+    } else if (specDef.needBlackhole) {
+      const field = gameState.your_field || [];
+      const hasBH = fieldSacs.some(fi => field[fi] && field[fi].name === 'Blackhole');
+      if (!hasBH) { errEl.textContent = 'Must include a Blackhole card.'; return; }
+      if (fieldSacs.length !== 3) { errEl.textContent = 'Select exactly 3 field cards (Blackhole + 2).'; return; }
+    } else if (specDef.needGreed) {
+      const field = gameState.your_field || [];
+      const hasGreed = fieldSacs.some(fi => field[fi] && field[fi].name === 'Greed');
+      if (!hasGreed) { errEl.textContent = 'Must include a Greed card.'; return; }
+      if (fieldSacs.length !== 3) { errEl.textContent = 'Select exactly 3 field cards (Greed + 2).'; return; }
     } else if (specDef.needEvo) {
       const field = gameState.your_field || [];
       const evoCount = fieldSacs.filter(fi => field[fi] && field[fi].evo).length;
