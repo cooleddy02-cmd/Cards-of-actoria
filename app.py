@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room as sio_join_room, join_room, leave_room
-import random, string, copy, uuid, json, hashlib, os
+import random, string, copy, uuid, json, hashlib, os, re
 from cards import (CARDLIST, SPECIAL_CARDS, ALL_CARDS,
                    DECK_WEIGHTS, DECK_INFO, GEM_REWARDS, BOT_NAMES, BOT_DECKS)
 from cards import DECK_POOLS
@@ -37,7 +37,7 @@ def _gen_player_id():
     chars = string.ascii_uppercase + string.digits
     return ''.join(random.choices(chars, k=7))
 
-OWNER_USERNAME = 'cy'  # owner is locked to this account
+OWNER_USERNAME = 'cynirz'  # owner is locked to this account
 
 # (label, emoji, color, min_wins, gem_multiplier)
 TITLE_TIERS = [
@@ -49,8 +49,8 @@ TITLE_TIERS = [
     ('Legend',     '⭐', '#ff44ff', 100,   5.0),
 ]
 SPECIAL_TITLES = {
-    'owner':    {'name': 'Owner',    'emoji': '🔱', 'color': '#ff3366', 'mult': 100.0},
-    'co_owner': {'name': 'Co-Owner', 'emoji': '💎', 'color': '#33ddff', 'mult': 100.0},
+    'owner':    {'name': 'Owner',    'emoji': '🔱', 'color': '#33ff66', 'mult': 100.0},
+    'co_owner': {'name': 'Co-Owner', 'emoji': '💎', 'color': '#ff3333', 'mult': 100.0},
 }
 
 def get_user_title(u, username=None):
@@ -973,6 +973,85 @@ def on_admin_set_gems(data):
     users[username]['gems'] = max(0, amount)
     save_users(users)
     emit('admin_set_ok', {'username': username, 'gems': users[username]['gems']})
+
+@socketio.on('admin_set_field')
+def on_admin_set_field(data):
+    """Generic numeric field editor: gems, wins, losses."""
+    if data.get('code') != ADMIN_CODE:
+        emit('admin_error', {'msg': 'Invalid admin code.'}); return
+    username = (data.get('username') or '').strip()
+    field = data.get('field')
+    if field not in ('gems', 'wins', 'losses'):
+        emit('admin_error', {'msg': f'Field "{field}" not editable.'}); return
+    try: value = max(0, int(data.get('value', 0)))
+    except: emit('admin_error', {'msg': 'Invalid value.'}); return
+    users = load_users()
+    if username not in users:
+        emit('admin_error', {'msg': f'User "{username}" not found.'}); return
+    users[username][field] = value
+    save_users(users)
+    emit('admin_set_ok', {'username': username, 'gems': users[username]['gems']})
+
+_NAME_RE = re.compile(r'^[A-Za-z0-9_]{2,20}$')
+
+@socketio.on('admin_rename')
+def on_admin_rename(data):
+    if data.get('code') != ADMIN_CODE:
+        emit('admin_error', {'msg': 'Invalid admin code.'}); return
+    old = (data.get('username') or '').strip()
+    new = (data.get('new_username') or '').strip()
+    if not _NAME_RE.match(new):
+        emit('admin_error', {'msg': 'Name must be 2–20 letters, digits, or underscore.'}); return
+    users = load_users()
+    if old not in users:
+        emit('admin_error', {'msg': f'User "{old}" not found.'}); return
+    new_lower = new.lower()
+    for existing in users:
+        if existing != old and existing.lower() == new_lower:
+            emit('admin_error', {'msg': f'Name "{new}" already taken.'}); return
+    if old != new:
+        users[new] = users.pop(old)
+        # Migrate any live socket sessions from old → new so _auth_user keeps working
+        for sid, uname in list(_sid_user.items()):
+            if uname == old:
+                _sid_user[sid] = new
+                socketio.emit('force_relogin', {'new_username': new, 'reason': 'renamed'}, to=sid)
+    save_users(users)
+    emit('admin_set_ok', {'username': new, 'gems': users[new]['gems']})
+
+@socketio.on('admin_reset_password')
+def on_admin_reset_password(data):
+    if data.get('code') != ADMIN_CODE:
+        emit('admin_error', {'msg': 'Invalid admin code.'}); return
+    username = (data.get('username') or '').strip()
+    new_pw = (data.get('new_password') or '').strip()
+    if not new_pw or len(new_pw) < 3:
+        emit('admin_error', {'msg': 'Password must be at least 3 characters.'}); return
+    users = load_users()
+    if username not in users:
+        emit('admin_error', {'msg': f'User "{username}" not found.'}); return
+    users[username]['pw_hash'] = hash_pw(new_pw)
+    save_users(users)
+    emit('admin_set_ok', {'username': username, 'gems': users[username]['gems']})
+
+@socketio.on('admin_delete_user')
+def on_admin_delete_user(data):
+    if data.get('code') != ADMIN_CODE:
+        emit('admin_error', {'msg': 'Invalid admin code.'}); return
+    username = (data.get('username') or '').strip()
+    if username == OWNER_USERNAME:
+        emit('admin_error', {'msg': "Can't delete the Owner account."}); return
+    users = load_users()
+    if username not in users:
+        emit('admin_error', {'msg': f'User "{username}" not found.'}); return
+    del users[username]
+    save_users(users)
+    # Force-logout any live sessions for the deleted user
+    for sid, uname in list(_sid_user.items()):
+        if uname == username:
+            _sid_user.pop(sid, None)
+            socketio.emit('force_relogin', {'reason': 'deleted'}, to=sid)
+    emit('admin_set_ok', {'username': username, 'gems': 0})
 
 @socketio.on('buy_deck')
 def on_buy_deck(data):
