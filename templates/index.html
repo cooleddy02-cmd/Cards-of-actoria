@@ -870,9 +870,25 @@ function renderMenuProfile() {
 //  ACCESS
 // ═══════════════════════════════════════════════════════
 document.getElementById('access-input').addEventListener('keydown', e => { if(e.key==='Enter') verifyAccess(); });
-function verifyAccess() { socket.emit('verify_access', { code: document.getElementById('access-input').value.trim() }); }
-socket.on('access_granted', () => showScreen('auth-screen'));
+function verifyAccess() {
+  const code = document.getElementById('access-input').value.trim();
+  socket.emit('verify_access', { code });
+}
+socket.on('access_granted', () => {
+  try { localStorage.setItem('ea_verified', '1'); } catch(e){}
+  showScreen('auth-screen');
+});
 socket.on('access_denied',  () => { document.getElementById('access-err').textContent='Invalid access code.'; });
+// Auto-skip the EA screen for returning visitors who already entered the code on this device.
+(function autoSkipAccess(){
+  try {
+    if (localStorage.getItem('ea_verified') === '1') {
+      const onConnect = () => { showScreen('auth-screen'); socket.off('connect', onConnect); };
+      if (socket.connected) showScreen('auth-screen');
+      else socket.on('connect', onConnect);
+    }
+  } catch(e){}
+})();
 
 // ═══════════════════════════════════════════════════════
 //  DECK SELECTOR HELPERS
