@@ -655,7 +655,7 @@
 
   <div id="forge-pane-build">
     <input id="forge-name" placeholder="Deck name (e.g. Brutal Brigade)" maxlength="24" />
-    <p class="sub" style="margin-top:-4px">Click cards to add. Choose 6–30 cards. Cost scales with power.</p>
+    <p class="sub" style="margin-top:-4px">Click cards to add. Choose 15–30 cards. Max 2 copies of each. Cost scales with power.</p>
     <div style="background:#1a1a1a;padding:8px;border-radius:8px">
       <div class="field-label">Your selection (<span id="forge-count">0</span>):</div>
       <div id="forge-picks" style="display:flex;flex-wrap:wrap;gap:4px;min-height:32px"></div>
@@ -2028,7 +2028,7 @@ function renderForgePicks() {
     el.appendChild(p);
   });
   document.getElementById('forge-count').textContent = _forgeSelection.length;
-  if (_forgeSelection.length >= 6) socket.emit('forge_quote', { cards: _forgeSelection });
+  if (_forgeSelection.length >= 15) socket.emit('forge_quote', { cards: _forgeSelection });
   else document.getElementById('forge-price').textContent = '—';
 }
 socket.on('forge_quote_result', d => {

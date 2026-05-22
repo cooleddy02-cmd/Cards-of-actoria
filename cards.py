@@ -81,7 +81,7 @@ CARDLIST = [
         {"id":"core_dark_star","name":"Dark Star","desc":"Every 2 turns: place a Dark Star on an enemy card (-1 DEF/turn, max 4)."},
         {"id":"no_sacrifice","name":"No Sacrifice","desc":"Cannot be sacrificed."},
         {"id":"no_revive","name":"No Revive","desc":"Cannot be revived."}]},
-    {"name":"Blackhole",    "atk":7,"def":3, "specials":[]},
+    {"name":"Blackhole",    "atk":0,"def":3, "specials":[]},
     {"name":"Milktoken",    "atk":1,"def":1,"no_draw":True, "specials":[
         {"id":"no_draw_flag","name":"Special Only","desc":"Cannot be drawn normally."}]},
     {"name":"Golem",        "atk":0,"def":5, "specials":[
@@ -235,6 +235,6 @@ DECK_INFO = [
      'desc':'Bounce + mirror + quick. ✅ Beats Storm & Warlord.  ❌ Loses to Venom.'},
 ]
 
-GEM_REWARDS = {'easy':2,'medium':4,'hard':7}
+GEM_REWARDS = {'easy':10,'medium':25,'hard':50}
 BOT_NAMES   = {'easy':'Rookie 🤖','medium':'Fighter 🤖','hard':'Champion 🤖'}
 BOT_DECKS   = {'easy':'basic','medium':'guardian','hard':'brawler'}

@@ -1850,12 +1850,16 @@ def on_forge_quote(data):
     card_names = data.get('cards', [])
     if not isinstance(card_names, list):
         emit('forge_quote_result', {'price': 0, 'valid': False, 'msg': 'Invalid cards.'}); return
-    if len(card_names) < 6 or len(card_names) > 30:
-        emit('forge_quote_result', {'price': 0, 'valid': False, 'msg': 'Need 6–30 cards.'}); return
+    if len(card_names) < 15 or len(card_names) > 30:
+        emit('forge_quote_result', {'price': 0, 'valid': False, 'msg': 'Need 15–30 cards.'}); return
     valid_names = {c['name'] for c in ALL_CARDS if not c.get('no_normal_play') and not c.get('no_draw')}
     for n in card_names:
         if n not in valid_names:
             emit('forge_quote_result', {'price': 0, 'valid': False, 'msg': f'Card "{n}" not allowed.'}); return
+    from collections import Counter
+    over = [n for n,c in Counter(card_names).items() if c > 2]
+    if over:
+        emit('forge_quote_result', {'price': 0, 'valid': False, 'msg': f'Max 2 of each card. Too many: {over[0]}.'}); return
     price = calc_deck_price(card_names)
     emit('forge_quote_result', {'price': price, 'valid': True, 'msg': 'OK'})
 
@@ -1869,12 +1873,16 @@ def on_forge_deck(data):
     card_names = data.get('cards', [])
     if not deck_name:
         emit('casino_error', {'msg': 'Deck needs a name.'}); return
-    if not isinstance(card_names, list) or len(card_names) < 6 or len(card_names) > 30:
-        emit('casino_error', {'msg': 'Need 6–30 cards.'}); return
+    if not isinstance(card_names, list) or len(card_names) < 15 or len(card_names) > 30:
+        emit('casino_error', {'msg': 'Need 15–30 cards.'}); return
     valid_names = {c['name'] for c in ALL_CARDS if not c.get('no_normal_play') and not c.get('no_draw')}
     for n in card_names:
         if not isinstance(n, str) or n not in valid_names:
             emit('casino_error', {'msg': f'Invalid card.'}); return
+    from collections import Counter
+    over = [n for n,c in Counter(card_names).items() if c > 2]
+    if over:
+        emit('casino_error', {'msg': f'Max 2 of each card. Too many: {over[0]}.'}); return
     price = calc_deck_price(card_names)
     with _users_lock:
         users = load_users()
