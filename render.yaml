@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     region: oregon
-    buildCommand: pip install flask flask-socketio eventlet pillow
+    buildCommand: pip install flask flask-socketio eventlet pillow psycopg2-binary
     startCommand: python main.py
     envVars:
       - key: PYTHON_VERSION

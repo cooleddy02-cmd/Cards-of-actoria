@@ -19,15 +19,16 @@ rooms = {}
 #  USER ACCOUNTS
 # ═══════════════════════════════════════════════════════════════
 
+import db as _db
+_db.seed_if_empty()
+
 def load_users():
-    if not os.path.exists(USERS_FILE):
-        return {}
-    with open(USERS_FILE, 'r') as f:
-        return json.load(f)
+    return _db.load_users()
 
 def save_users(users):
-    with open(USERS_FILE, 'w') as f:
-        json.dump(users, f, indent=2)
+    _db.save_users(users)
+
+print(f"[startup] storage backend: {'Postgres (Neon)' if _db.using_postgres() else 'local JSON file'}")
 
 def hash_pw(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
