@@ -7,6 +7,7 @@ import ctypes
 import json
 import os
 import sys
+import tempfile
 import webview
 
 DEFAULT_URL = "https://cards-of-factoria.replit.app"
@@ -73,7 +74,14 @@ def main():
         _show_missing_webview2()
         return
     url = _load_url()
-    webview.create_window(
+
+    # Give WebView2 a guaranteed-writable data folder (otherwise it can
+    # init then silently fail to navigate when running from restricted dirs).
+    user_data = os.path.join(tempfile.gettempdir(), "CardsOfFactoria-WebView2")
+    os.makedirs(user_data, exist_ok=True)
+    os.environ["WEBVIEW2_USER_DATA_FOLDER"] = user_data
+
+    window = webview.create_window(
         title="Cards of Factoria",
         url=url,
         width=1280,
@@ -82,15 +90,30 @@ def main():
         background_color="#0d0d0d",
         text_select=False,
     )
-    # Force WebView2 — never fall back to the system browser.
+
+    def _on_loaded():
+        # If page loads, this fires. Good signal it's working.
+        pass
+
+    def _on_started():
+        # Force-reload after a short delay in case initial nav was dropped.
+        try:
+            window.load_url(url)
+        except Exception:
+            pass
+
+    window.events.loaded += _on_loaded
+
     try:
-        webview.start(gui="edgechromium", private_mode=False)
+        # debug=True enables right-click → Inspect for diagnostics.
+        # Let pywebview auto-detect the GUI backend (WebView2 on Win11).
+        webview.start(debug=True, func=_on_started)
     except Exception as e:
         if sys.platform.startswith("win"):
             ctypes.windll.user32.MessageBoxW(
                 0,
                 f"Failed to start the embedded browser engine.\n\n{e}\n\n"
-                "Make sure the Microsoft Edge WebView2 Runtime is installed.",
+                "Try installing/repairing Microsoft Edge WebView2 Runtime.",
                 "Cards of Factoria — Error", 0x10)
 
 if __name__ == "__main__":
