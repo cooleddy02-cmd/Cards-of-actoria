@@ -10,7 +10,7 @@ import sys
 import tempfile
 import webview
 
-DEFAULT_URL = "https://cards-of-factoria.replit.app"
+DEFAULT_URL = "https://cards-of-actoria.onrender.com"
 WEBVIEW2_DOWNLOAD = "https://developer.microsoft.com/microsoft-edge/webview2/"
 
 def _exe_dir():
