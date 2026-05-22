@@ -511,7 +511,7 @@
   <p class="err" id="admin-err"></p>
   <div style="max-height:560px;overflow-y:auto">
     <table class="admin-table">
-      <thead><tr><th>Username</th><th>Player ID</th><th>W</th><th>L</th><th>💎</th><th>Set Gems</th></tr></thead>
+      <thead><tr><th>Username / Title</th><th>Player ID</th><th>Wins</th><th>Losses</th><th>💎 Gems</th><th>Actions</th></tr></thead>
       <tbody id="admin-tbody"></tbody>
     </table>
   </div>
@@ -891,7 +891,8 @@ function renderMenuProfile() {
     gemEl.style.display = 'inline-flex';
     document.getElementById('menu-gem-count').textContent = session.gems;
     profEl.style.display = 'flex';
-    document.getElementById('menu-uname').textContent = session.username;
+    const unameEl = document.getElementById('menu-uname');
+    unameEl.textContent = session.username;
     document.getElementById('menu-stats').textContent = `${session.wins} wins · ${session.losses} losses`;
     document.getElementById('menu-player-id').textContent = session.player_id ? `ID: ${session.player_id}` : '';
     const t = session.title;
@@ -900,7 +901,10 @@ function renderMenuProfile() {
       const multTxt = t.mult > 1 ? ` · ${t.mult}× gems` : '';
       tEl.textContent = `${t.emoji} ${t.name}${multTxt}`;
       tEl.style.color = t.color;
-    } else { tEl.textContent = ''; }
+      // Special title (Owner/Co-Owner) → colorize the username itself
+      unameEl.style.color = t.is_special ? t.color : '';
+      unameEl.style.textShadow = t.is_special ? `0 0 8px ${t.color}55` : '';
+    } else { tEl.textContent = ''; unameEl.style.color = ''; unameEl.style.textShadow = ''; }
   } else {
     gemEl.style.display = 'none';
     profEl.style.display = 'none';
@@ -1719,27 +1723,99 @@ socket.on('admin_ok', d => {
   document.getElementById('admin-count').textContent = `${d.players.length} players`;
   const tbody = document.getElementById('admin-tbody');
   tbody.innerHTML = '';
+  const mkBtn = (label, cls, style, handler) => {
+    const b = document.createElement('button');
+    b.className = 'btn-sm ' + (cls || '');
+    if (style) b.setAttribute('style', style);
+    b.textContent = label;
+    b.addEventListener('click', handler);
+    return b;
+  };
+  const mkInp = (type, value, extraStyle) => {
+    const i = document.createElement('input');
+    i.className = 'admin-inp'; i.type = type;
+    if (value !== undefined && value !== null) i.value = value;
+    if (extraStyle) i.setAttribute('style', extraStyle);
+    return i;
+  };
   d.players.forEach(p => {
-    const tr = document.createElement('tr');
-    const t = p.title || {emoji:'',name:'',color:'#888',mult:1};
+    const uname = String(p.username);
+    const t = p.title || {emoji:'',name:'',color:'#888',mult:1,is_special:false};
     const isCoOwner = t.name === 'Co-Owner';
     const isOwner = t.name === 'Owner';
-    const titleCell = `<span style="color:${t.color};font-weight:bold">${t.emoji} ${t.name}</span>${t.mult>1?` <span style="color:#888;font-size:.75em">${t.mult}×</span>`:''}`;
-    let titleBtn = '';
-    if (isOwner) titleBtn = '<span style="color:#888;font-size:.7em">(locked)</span>';
-    else if (isCoOwner) titleBtn = `<button class="btn-sm btn-sec" onclick="adminGrantTitle('${p.username}','')">Revoke Co-Owner</button>`;
-    else titleBtn = `<button class="btn-sm btn-gold" onclick="adminGrantTitle('${p.username}','co_owner')">Make Co-Owner</button>`;
-    tr.innerHTML = `
-      <td><strong>${p.username}</strong><br>${titleCell}</td>
-      <td class="pid-tag">${p.player_id}</td>
-      <td style="color:#44ff88">${p.wins}</td>
-      <td style="color:#ff5555">${p.losses}</td>
-      <td style="color:#ffcc44">${p.gems}</td>
-      <td>
-        <input class="admin-inp" type="number" id="gem-inp-${p.username}" value="${p.gems}" min="0"/>
-        <button class="btn-sm btn-gold" style="margin-left:4px" onclick="adminSetGems('${p.username}')">Set</button>
-        <div style="margin-top:4px">${titleBtn}</div>
-      </td>`;
+    const tr = document.createElement('tr');
+
+    // Col 1: username + title
+    const td1 = document.createElement('td');
+    const nameEl = document.createElement('strong');
+    nameEl.textContent = uname;
+    if (t.is_special) { nameEl.style.color = t.color; nameEl.style.textShadow = `0 0 6px ${t.color}55`; }
+    td1.appendChild(nameEl); td1.appendChild(document.createElement('br'));
+    const titleEl = document.createElement('span');
+    titleEl.style.color = t.color; titleEl.style.fontWeight = 'bold';
+    titleEl.textContent = `${t.emoji} ${t.name}`;
+    td1.appendChild(titleEl);
+    if (t.mult > 1) {
+      const m = document.createElement('span');
+      m.style.cssText = 'color:#888;font-size:.75em'; m.textContent = ` ${t.mult}×`;
+      td1.appendChild(m);
+    }
+    tr.appendChild(td1);
+
+    // Col 2: player ID
+    const td2 = document.createElement('td'); td2.className = 'pid-tag';
+    td2.textContent = String(p.player_id || ''); tr.appendChild(td2);
+
+    // Cols 3–5: wins / losses / gems
+    [['wins','#44ff88'],['losses','#ff5555'],['gems','#ffcc44']].forEach(([field,color]) => {
+      const td = document.createElement('td');
+      const inp = mkInp('number', p[field], `width:70px;color:${color}`);
+      inp.min = 0;
+      const btn = mkBtn('✓', field==='gems'?'btn-gold':'', '', () => {
+        if (field === 'gems') socket.emit('admin_set_gems', {code:_adminCode, username:uname, amount:parseInt(inp.value)||0});
+        else socket.emit('admin_set_field', {code:_adminCode, username:uname, field, value:parseInt(inp.value)||0});
+      });
+      td.appendChild(inp); td.appendChild(btn); tr.appendChild(td);
+    });
+
+    // Col 6: actions
+    const td6 = document.createElement('td'); td6.style.whiteSpace = 'nowrap';
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;align-items:center';
+
+    const renameInp = mkInp('text', '', 'width:90px'); renameInp.placeholder = 'rename to'; renameInp.maxLength = 20;
+    wrap.appendChild(renameInp);
+    wrap.appendChild(mkBtn('Rename','', '', () => {
+      const v = renameInp.value.trim();
+      if (!/^[A-Za-z0-9_]{2,20}$/.test(v)) { alert('Name must be 2–20 letters, digits, or _'); return; }
+      socket.emit('admin_rename', {code:_adminCode, username:uname, new_username:v});
+    }));
+
+    const pwInp = mkInp('text', '', 'width:90px'); pwInp.placeholder = 'new password';
+    wrap.appendChild(pwInp);
+    wrap.appendChild(mkBtn('Reset PW','', '', () => {
+      if (!pwInp.value) { alert('Enter a new password.'); return; }
+      if (!confirm(`Reset password for ${uname}?`)) return;
+      socket.emit('admin_reset_password', {code:_adminCode, username:uname, new_password:pwInp.value});
+    }));
+
+    if (isOwner) {
+      const lock = document.createElement('span');
+      lock.style.cssText = 'color:#888;font-size:.7em'; lock.textContent = '(Owner locked)';
+      wrap.appendChild(lock);
+    } else if (isCoOwner) {
+      wrap.appendChild(mkBtn('Revoke Co-Owner','btn-sec','', () => socket.emit('admin_grant_title',{code:_adminCode,username:uname,title:''})));
+    } else {
+      wrap.appendChild(mkBtn('Make Co-Owner','btn-gold','', () => socket.emit('admin_grant_title',{code:_adminCode,username:uname,title:'co_owner'})));
+    }
+    if (!isOwner) {
+      wrap.appendChild(mkBtn('Delete','btn-sec','background:#661111;color:#ff8888', () => {
+        if (!confirm(`Permanently delete "${uname}"? This cannot be undone.`)) return;
+        if (!confirm(`Really delete ${uname}? All gems and decks will be lost.`)) return;
+        socket.emit('admin_delete_user', {code:_adminCode, username:uname});
+      }));
+    }
+    td6.appendChild(wrap); tr.appendChild(td6);
     tbody.appendChild(tr);
   });
   showScreen('admin-screen');
@@ -1748,13 +1824,13 @@ socket.on('admin_error', d => {
   document.getElementById('admin-code-err').textContent = d.msg;
   document.getElementById('admin-err').textContent = d.msg;
 });
-function adminSetGems(username) {
-  const val = document.getElementById(`gem-inp-${username}`).value;
-  socket.emit('admin_set_gems', { code: _adminCode, username, amount: parseInt(val) });
-}
-function adminGrantTitle(username, title) {
-  socket.emit('admin_grant_title', { code: _adminCode, username, title });
-}
+socket.on('force_relogin', d => {
+  alert(d && d.reason === 'deleted'
+    ? 'Your account was deleted by an admin. Please log in again.'
+    : `Your account was renamed by an admin${d && d.new_username ? ' to "'+d.new_username+'"' : ''}. Please log in again.`);
+  session = {username:null, gems:0, wins:0, losses:0};
+  showScreen('auth-screen');
+});
 socket.on('admin_set_ok', d => {
   document.getElementById('admin-err').textContent = `✓ ${d.username} gems set to ${d.gems}`;
   setTimeout(() => { document.getElementById('admin-err').textContent = ''; }, 3000);
