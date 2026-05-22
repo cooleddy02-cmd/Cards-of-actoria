@@ -254,12 +254,15 @@ def player_action(table, pidx, action, amount=0):
     elif action == 'call':
         _post_bet(p, to_call)
     elif action == 'raise':
-        if amount < to_call + table['min_raise']:
-            amount = to_call + table['min_raise']
-        if amount >= p['chips']:
+        # amount = TARGET total bet for this street (UI sends "raise to X")
+        target = max(amount, table['current_bet'] + table['min_raise'])
+        add = target - p['bet']
+        if add >= p['chips']:
             return player_action(table, pidx, 'allin')
-        _post_bet(p, amount)
-        table['min_raise'] = (p['bet'] - table['current_bet'])
+        if add <= 0:
+            return False, "Raise must increase your bet."
+        _post_bet(p, add)
+        table['min_raise'] = p['bet'] - table['current_bet']
         table['current_bet'] = p['bet']
         table['last_aggressor'] = pidx
     elif action == 'allin':
@@ -377,11 +380,11 @@ def _award_pot(table, winner_indices, ranks=None):
     table['message'] = ' + '.join(f"{w['name']} wins {w['won']}" for w in info['winners'])
 
 def bot_decide(table, pidx):
-    """Simple bot: evaluates current hand strength, then folds/calls/raises."""
+    """Simple bot: evaluates current hand strength, then folds/calls/raises.
+    Returns (action, target_total_bet) — amount is the TARGET bet level for raises."""
     p = table['players'][pidx]
     to_call = table['current_bet'] - p['bet']
     if not table['community']:
-        # Pre-flop: use simple Chen-like score
         r1, r2 = sorted([RANK_VAL[c[0]] for c in p['hand']], reverse=True)
         s = r1 / 2 + (1 if r1 == r2 else 0) * 5
         if p['hand'][0][1] == p['hand'][1][1]: s += 2
@@ -396,13 +399,16 @@ def bot_decide(table, pidx):
             strength = 0.3
     r = random.random()
     if to_call == 0:
-        if strength > 0.5 and r < 0.4:
+        if strength > 0.6 and r < 0.35:
             return ('raise', table['current_bet'] + table['big_blind'] * 2)
         return ('check', 0)
     pot_odds = to_call / max(1, table['pot'] + to_call)
-    if strength < pot_odds * 0.7 and r < 0.6:
+    # Bots much more willing to call — fold only on truly weak hands
+    if strength < 0.15 and r < 0.5:
         return ('fold', 0)
-    if strength > 0.7 and r < 0.35:
+    if strength < pot_odds * 0.5 and r < 0.3:
+        return ('fold', 0)
+    if strength > 0.75 and r < 0.25:
         return ('raise', table['current_bet'] + table['big_blind'] * 3)
     return ('call', 0)
 
