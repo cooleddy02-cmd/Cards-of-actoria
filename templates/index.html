@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Clockpapi</title>
+  <title>Cards of Factoria</title>
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#0d0d0d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Clockpapi">
+  <meta name="apple-mobile-web-app-title" content="Cards of Factoria">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.svg">
   <link rel="icon" type="image/svg+xml" href="/static/icons/icon-192.svg">
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -217,7 +217,7 @@
 <div id="install-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:20px" onclick="if(event.target.id==='install-overlay')document.getElementById('install-overlay').style.display='none'">
   <div style="background:#1a1a1a;border:1px solid #d4af37;border-radius:14px;padding:22px;max-width:380px;width:100%;color:#fff;max-height:90vh;overflow-y:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <h3 style="color:#d4af37">📲 Install Clockpapi</h3>
+      <h3 style="color:#d4af37">📲 Install Cards of Factoria</h3>
       <button onclick="document.getElementById('install-overlay').style.display='none'" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer">×</button>
     </div>
     <div id="install-instructions" style="font-size:.9rem;line-height:1.5"></div>
@@ -226,7 +226,7 @@
 </div>
 
 <div class="screen active" id="access-screen">
-  <h1>Card Game</h1>
+  <h1>Cards of Factoria</h1>
   <p class="sub">Early Access</p>
   <input id="access-input" type="text" placeholder="Enter access code" autocomplete="off"/>
   <button onclick="verifyAccess()">Enter</button>
@@ -235,7 +235,7 @@
 
 <!-- ═══ AUTH ═══ -->
 <div class="screen" id="auth-screen">
-  <h1>Card Game</h1>
+  <h1>Cards of Factoria</h1>
   <div class="tabs">
     <button class="tab active" onclick="switchTab('login')">Login</button>
     <button class="tab"        onclick="switchTab('register')">Register</button>
@@ -905,16 +905,47 @@ window.addEventListener('beforeinstallprompt', e => {
   if (btn) btn.style.display = 'block';
 });
 function installApp() {
-  if (!_deferredInstall) {
-    alert("On iOS: tap the Share icon, then 'Add to Home Screen'.\nOn desktop Chrome: look for the install icon in the address bar.");
+  if (_deferredInstall) {
+    _deferredInstall.prompt();
+    _deferredInstall.userChoice.finally(() => { _deferredInstall = null; });
     return;
   }
-  _deferredInstall.prompt();
-  _deferredInstall.userChoice.finally(() => {
-    _deferredInstall = null;
-    const btn = document.getElementById('install-app-btn');
-    if (btn) btn.style.display = 'none';
-  });
+  // Build platform-specific instructions
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  const isAndroid = /Android/i.test(ua);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  let html;
+  if (isStandalone) {
+    html = '<p>✅ You\'re already running Cards of Factoria as an installed app!</p>';
+  } else if (isIOS) {
+    html = `
+      <p><b>Install on iPhone/iPad (Safari):</b></p>
+      <ol style="padding-left:20px;margin-top:8px">
+        <li>Tap the <b>Share</b> icon ⬆️ at the bottom of Safari</li>
+        <li>Scroll down and tap <b>Add to Home Screen</b></li>
+        <li>Tap <b>Add</b> — Cards of Factoria will appear on your home screen</li>
+      </ol>`;
+  } else if (isAndroid) {
+    html = `
+      <p><b>Install on Android (Chrome):</b></p>
+      <ol style="padding-left:20px;margin-top:8px">
+        <li>Tap the <b>⋮</b> menu in the top-right of Chrome</li>
+        <li>Tap <b>Install app</b> or <b>Add to Home screen</b></li>
+        <li>Confirm — the icon will appear on your home screen</li>
+      </ol>`;
+  } else {
+    html = `
+      <p><b>Install on Desktop (Chrome / Edge):</b></p>
+      <ol style="padding-left:20px;margin-top:8px">
+        <li>Look for the install icon ⊕ in the address bar (right side)</li>
+        <li>Click it, then click <b>Install</b></li>
+        <li>The app will open in its own window and add a shortcut</li>
+      </ol>
+      <p style="margin-top:10px;font-size:.8rem;color:#aaa">Firefox / Safari desktop don't support PWA install — try Chrome or Edge.</p>`;
+  }
+  document.getElementById('install-instructions').innerHTML = html;
+  document.getElementById('install-overlay').style.display = 'flex';
 }
 
 document.getElementById('access-input').addEventListener('keydown', e => { if(e.key==='Enter') verifyAccess(); });

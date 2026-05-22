@@ -1,6 +1,40 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#0d0d0d"/>
-  <rect x="16" y="16" width="480" height="480" rx="80" fill="none" stroke="#d4af37" stroke-width="8"/>
-  <text x="256" y="320" font-family="serif" font-size="300" font-weight="bold" fill="#d4af37" text-anchor="middle">♠</text>
-  <text x="256" y="430" font-family="sans-serif" font-size="48" font-weight="bold" fill="#fff" text-anchor="middle" letter-spacing="6">CLOCKPAPI</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a0d2e"/>
+      <stop offset="1" stop-color="#0d0d0d"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4d76e"/>
+      <stop offset="1" stop-color="#b8860b"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="4"/></filter>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <rect x="14" y="14" width="484" height="484" rx="84" fill="none" stroke="url(#gold)" stroke-width="6"/>
+
+  <!-- Fanned cards -->
+  <g transform="translate(256 280)">
+    <!-- Back card (club, rotated left) -->
+    <g transform="rotate(-22) translate(-60 -90)">
+      <rect width="120" height="180" rx="14" fill="#fff" stroke="#222" stroke-width="3"/>
+      <text x="60" y="115" font-family="serif" font-size="92" fill="#111" text-anchor="middle">♣</text>
+    </g>
+    <!-- Right card (diamond, rotated right) -->
+    <g transform="rotate(22) translate(-60 -90)">
+      <rect width="120" height="180" rx="14" fill="#fff" stroke="#222" stroke-width="3"/>
+      <text x="60" y="115" font-family="serif" font-size="92" fill="#c41e3a" text-anchor="middle">♦</text>
+    </g>
+    <!-- Front center card (spade, large) -->
+    <g transform="translate(-70 -100)">
+      <rect width="140" height="200" rx="16" fill="#fff" stroke="url(#gold)" stroke-width="4"/>
+      <text x="70" y="135" font-family="serif" font-size="120" fill="#111" text-anchor="middle" font-weight="bold">♠</text>
+      <text x="22" y="38" font-family="serif" font-size="22" fill="#111" font-weight="bold">A</text>
+      <text x="118" y="186" font-family="serif" font-size="22" fill="#111" font-weight="bold" transform="rotate(180 118 178)">A</text>
+    </g>
+  </g>
+
+  <!-- Title banner -->
+  <rect x="56" y="430" width="400" height="44" rx="22" fill="#0d0d0d" stroke="url(#gold)" stroke-width="2"/>
+  <text x="256" y="461" font-family="Georgia, serif" font-size="26" font-weight="bold" fill="url(#gold)" text-anchor="middle" letter-spacing="3">FACTORIA</text>
 </svg>

@@ -1,4 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#0d0d0d"/>
-  <text x="256" y="330" font-family="serif" font-size="260" font-weight="bold" fill="#d4af37" text-anchor="middle">♠</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a0d2e"/>
+      <stop offset="1" stop-color="#0d0d0d"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4d76e"/>
+      <stop offset="1" stop-color="#b8860b"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <g transform="translate(256 256)">
+    <g transform="rotate(-22) translate(-65 -100)">
+      <rect width="130" height="200" rx="16" fill="#fff" stroke="#222" stroke-width="3"/>
+      <text x="65" y="130" font-family="serif" font-size="105" fill="#111" text-anchor="middle">♣</text>
+    </g>
+    <g transform="rotate(22) translate(-65 -100)">
+      <rect width="130" height="200" rx="16" fill="#fff" stroke="#222" stroke-width="3"/>
+      <text x="65" y="130" font-family="serif" font-size="105" fill="#c41e3a" text-anchor="middle">♦</text>
+    </g>
+    <g transform="translate(-75 -110)">
+      <rect width="150" height="220" rx="18" fill="#fff" stroke="url(#gold)" stroke-width="4"/>
+      <text x="75" y="150" font-family="serif" font-size="135" fill="#111" text-anchor="middle" font-weight="bold">♠</text>
+    </g>
+  </g>
 </svg>

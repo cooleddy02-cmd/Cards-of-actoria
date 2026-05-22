@@ -1,7 +1,7 @@
 {
-  "name": "Clockpapi Card Game",
-  "short_name": "Clockpapi",
-  "description": "Card battler with casino, deck forge, and multiplayer poker.",
+  "name": "Cards of Factoria",
+  "short_name": "Factoria",
+  "description": "Cards of Factoria — a card battler with casino, deck forge, and multiplayer poker.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
