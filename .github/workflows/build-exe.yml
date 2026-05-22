@@ -37,6 +37,10 @@ jobs:
             --icon "icon.ico" `
             --version-file "version_info.txt" `
             --noupx `
+            --collect-all webview `
+            --collect-all pythonnet `
+            --collect-all clr_loader `
+            --hidden-import clr `
             main.py
 
       - name: Stage release files
