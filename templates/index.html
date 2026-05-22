@@ -877,7 +877,7 @@ socket.on('access_denied',  () => { document.getElementById('access-err').textCo
 // ═══════════════════════════════════════════════════════
 //  DECK SELECTOR HELPERS
 // ═══════════════════════════════════════════════════════
-const ALL_DECKS = [
+let ALL_DECKS = [
   {id:'basic',   icon:'🃏', name:'Starter'},
   {id:'brawler', icon:'⚔️', name:'Brawler'},
   {id:'guardian',icon:'🛡️', name:'Guardian'},
@@ -886,7 +886,15 @@ const ALL_DECKS = [
   {id:'storm',   icon:'🌩️', name:'Storm'},
   {id:'dream',   icon:'🌙', name:'Dream'},
   {id:'titan',   icon:'🏔️', name:'Titan'},
+  {id:'venom',   icon:'🐍', name:'Venom'},
+  {id:'phoenix', icon:'🔥', name:'Phoenix'},
+  {id:'warlord', icon:'⚜️', name:'Warlord'},
+  {id:'trickster',icon:'🎭',name:'Trickster'},
 ];
+// Refresh from server so any future decks added in cards.py auto-appear too
+fetch('/decks').then(r=>r.json()).then(j=>{
+  if (j && j.decks) ALL_DECKS = j.decks.map(d=>({id:d.id, icon:d.icon, name:d.name.replace(/ Deck$/,'')}));
+}).catch(()=>{});
 const deckSelections = { lobby: 'basic', bot: 'basic' };
 
 function buildDeckSelector(containerId, key) {
