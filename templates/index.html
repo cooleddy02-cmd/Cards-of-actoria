@@ -919,6 +919,12 @@ function installApp() {
     _deferredInstall.userChoice.finally(() => { _deferredInstall = null; });
     return;
   }
+  // If we're trapped in an iframe (e.g. Replit preview), the browser won't
+  // fire beforeinstallprompt. Pop the live URL out so the user can install.
+  if (window.top !== window.self) {
+    window.open(window.location.href, '_blank');
+    return;
+  }
   // Build platform-specific instructions
   const ua = navigator.userAgent;
   const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
