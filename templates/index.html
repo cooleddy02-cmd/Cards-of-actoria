@@ -168,6 +168,21 @@
     .diff-badge.medium{background:#1a2a3a;color:#44aaff}
     .diff-badge.hard{background:#3a1a1a;color:#ff5555}
 
+    /* ── TARGETABLE OWN FIELD ── */
+    .card-slot.targetable{border-color:#ff9900!important;cursor:crosshair}
+    .card-slot.targetable:hover{transform:translateY(-2px);border-color:#ffcc44!important}
+
+    /* ── TRACKER & ADMIN ── */
+    .tracker-card{background:#161616;border:1px solid #333;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+    .tracker-card .tr-name{font-size:1.05rem;font-weight:bold}
+    .tracker-card .tr-id{font-family:monospace;font-size:.72rem;color:#555;letter-spacing:1px}
+    .admin-table{width:100%;border-collapse:collapse;font-size:.76rem}
+    .admin-table th{color:#555;text-align:left;padding:5px 6px;border-bottom:1px solid #222;font-size:.7rem;text-transform:uppercase}
+    .admin-table td{padding:5px 6px;border-bottom:1px solid #1a1a1a;vertical-align:middle}
+    .admin-table tr:hover td{background:#111}
+    .admin-inp{background:#1a1a1a;border:1px solid #333;border-radius:5px;color:#fff;padding:3px 6px;font-size:.75rem;width:58px;text-align:center}
+    .pid-tag{font-family:monospace;color:#666;letter-spacing:1px}
+
     /* dividers */
     .divider{display:flex;align-items:center;gap:8px;color:#333;font-size:.8rem}
     .divider::before,.divider::after{content:'';flex:1;height:1px;background:#2a2a2a}
@@ -234,6 +249,7 @@
     <div>
       <div class="uname" id="menu-uname">Player</div>
       <div class="usub" id="menu-stats">0 wins · 0 losses</div>
+      <div style="font-size:.65rem;color:#555;margin-top:2px;font-family:monospace;letter-spacing:1px" id="menu-player-id"></div>
     </div>
     <button class="btn-sec btn-sm" onclick="showScreen('auth-screen');resetAuth()">Switch Account</button>
   </div>
@@ -250,6 +266,13 @@
     <span class="icon">🏪</span>
     <div class="info"><h3>Shop</h3><p>Spend gems on powerful themed decks</p></div>
   </button>
+  <button class="menu-btn" onclick="openTracker()">
+    <span class="icon">📊</span>
+    <div class="info"><h3>Stat Tracker</h3><p>Look up any player's W/L and gems by Player ID</p></div>
+  </button>
+  <div style="text-align:center;margin-top:-4px">
+    <button class="btn-sec btn-sm" onclick="openAdminPrompt()">⚙️ Admin</button>
+  </div>
 </div>
 
 <!-- ═══ ONLINE LOBBY ═══ -->
@@ -335,7 +358,10 @@
 <!-- ═══ GAME ═══ -->
 <div class="screen" id="game-screen">
   <div class="player-bar">
-    <span class="pname" id="opp-name-bar">Opponent</span>
+    <div style="display:flex;flex-direction:column;gap:1px">
+      <span class="pname" id="opp-name-bar">Opponent</span>
+      <span style="font-family:monospace;font-size:.58rem;color:#444" id="opp-id-bar"></span>
+    </div>
     <span id="bot-gem-hint" style="display:none;font-size:.7rem;color:#ffcc44"></span>
     <span style="color:#555;font-size:.72rem" id="opp-hand-count">Hand: 0</span>
     <span class="hp">❤️ <span id="opp-hp">20</span></span>
@@ -388,6 +414,47 @@
   <button onclick="document.getElementById('gem-overlay').classList.remove('show')">Continue</button>
 </div>
 
+<!-- ═══ TRACKER ═══ -->
+<div class="screen" id="tracker-screen">
+  <button class="btn-sec btn-sm" style="align-self:flex-start" onclick="showScreen('menu-screen')">← Back</button>
+  <h2>📊 Stat Tracker</h2>
+  <p class="sub">Enter any player's 7-character ID to see their stats</p>
+  <div style="display:flex;gap:8px">
+    <input id="tracker-input" type="text" placeholder="Player ID  (e.g. XK2M9PQ)" maxlength="7" style="text-transform:uppercase;font-family:monospace;letter-spacing:2px" autocomplete="off"/>
+    <button onclick="doSearch()" style="width:90px;flex-shrink:0">Search</button>
+  </div>
+  <div id="tracker-result" style="display:none"></div>
+  <p class="err" id="tracker-err"></p>
+</div>
+
+<!-- ═══ ADMIN ═══ -->
+<div class="screen" id="admin-screen" style="max-width:680px">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <button class="btn-sec btn-sm" onclick="showScreen('menu-screen')">← Back</button>
+    <h2>⚙️ Admin Panel</h2>
+    <span style="font-size:.75rem;color:#555" id="admin-count"></span>
+  </div>
+  <p class="err" id="admin-err"></p>
+  <div style="max-height:560px;overflow-y:auto">
+    <table class="admin-table">
+      <thead><tr><th>Username</th><th>Player ID</th><th>W</th><th>L</th><th>💎</th><th>Set Gems</th></tr></thead>
+      <tbody id="admin-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ ADMIN CODE PROMPT ═══ -->
+<div class="overlay" id="admin-prompt-overlay">
+  <h2>⚙️ Admin Access</h2>
+  <p class="sub">Enter the admin code to continue</p>
+  <input id="admin-code-input" type="password" placeholder="Admin code" style="max-width:280px"/>
+  <div class="btn-row" style="max-width:280px;width:100%">
+    <button onclick="submitAdminCode()">Enter</button>
+    <button class="btn-sec" onclick="closeAdminPrompt()">Cancel</button>
+  </div>
+  <p class="err" id="admin-code-err"></p>
+</div>
+
 <!-- ═══ WINNER BANNER ═══ -->
 <div id="winner-banner">
   <h2 id="winner-text">Winner!</h2>
@@ -402,7 +469,8 @@
 const socket = io();
 let myIndex = null, roomCode = null, gameState = null;
 let selectedAttacker = null, abilityMode = null;
-let session = { username: null, gems: 0, owned_decks: ['basic'], wins: 0, losses: 0 };
+let session = { username: null, gems: 0, owned_decks: ['basic'], wins: 0, losses: 0, player_id: null };
+let _adminCode = null;
 let selectedDiff = 'easy';
 
 const ACTIVE_ABILITIES = ['circus_bounce','apple_buff','sword_buff','milk_summon','milk_drink',
@@ -465,6 +533,7 @@ socket.on('auth_ok', d => {
   session.owned_decks = d.owned_decks;
   session.wins        = d.wins;
   session.losses      = d.losses;
+  session.player_id   = d.player_id || null;
   renderMenuProfile();
   showScreen('menu-screen');
 });
@@ -482,6 +551,7 @@ function renderMenuProfile() {
     profEl.style.display = 'flex';
     document.getElementById('menu-uname').textContent = session.username;
     document.getElementById('menu-stats').textContent = `${session.wins} wins · ${session.losses} losses`;
+    document.getElementById('menu-player-id').textContent = session.player_id ? `ID: ${session.player_id}` : '';
   } else {
     gemEl.style.display = 'none';
     profEl.style.display = 'none';
@@ -500,11 +570,14 @@ socket.on('access_denied',  () => { document.getElementById('access-err').textCo
 //  DECK SELECTOR HELPERS
 // ═══════════════════════════════════════════════════════
 const ALL_DECKS = [
-  {id:'basic',icon:'🃏',name:'Starter'},
-  {id:'brawler',icon:'⚔️',name:'Brawler'},
-  {id:'guardian',icon:'🛡️',name:'Guardian'},
-  {id:'mystic',icon:'🔮',name:'Mystic'},
-  {id:'chaos',icon:'🌀',name:'Chaos'},
+  {id:'basic',   icon:'🃏', name:'Starter'},
+  {id:'brawler', icon:'⚔️', name:'Brawler'},
+  {id:'guardian',icon:'🛡️', name:'Guardian'},
+  {id:'mystic',  icon:'🔮', name:'Mystic'},
+  {id:'chaos',   icon:'🌀', name:'Chaos'},
+  {id:'storm',   icon:'🌩️', name:'Storm'},
+  {id:'dream',   icon:'🌙', name:'Dream'},
+  {id:'titan',   icon:'🏔️', name:'Titan'},
 ];
 const deckSelections = { lobby: 'basic', bot: 'basic' };
 
@@ -580,13 +653,16 @@ function startBot() {
 //  SHOP
 // ═══════════════════════════════════════════════════════
 const DECK_DESCS = {
-  basic:   {icon:'🃏',name:'Starter Deck',   desc:'A balanced mix of all cards. Perfect for learning.'},
-  brawler: {icon:'⚔️',name:'Brawler Deck',   desc:'High-damage cards. Pierce, cleave, and overwhelm.'},
-  guardian:{icon:'🛡️',name:'Guardian Deck',  desc:'Defensive powerhouse. Block, regen, and outlast.'},
-  mystic:  {icon:'🔮',name:'Mystic Deck',    desc:'Ability-focused. Trap, reflect, and control the field.'},
-  chaos:   {icon:'🌀',name:'Chaos Deck',     desc:'Unpredictable wildcards. High risk, high reward.'},
+  basic:   {icon:'🃏', name:'Starter Deck',  desc:'A balanced mix of all cards. Perfect for learning.'},
+  brawler: {icon:'⚔️', name:'Brawler Deck',  desc:'High-damage cards. Pierce, cleave, and overwhelm.'},
+  guardian:{icon:'🛡️', name:'Guardian Deck', desc:'Defensive powerhouse. Block, regen, and outlast.'},
+  mystic:  {icon:'🔮', name:'Mystic Deck',   desc:'Ability-focused. Trap, reflect, and control the field.'},
+  chaos:   {icon:'🌀', name:'Chaos Deck',    desc:'Unpredictable wildcards. High risk, high reward.'},
+  storm:   {icon:'🌩️', name:'Storm Deck',   desc:'Fast and aggressive. Status effects, pierce, and raw power.'},
+  dream:   {icon:'🌙', name:'Dream Deck',    desc:'Deceptive and punishing. Curses, mirrors, and mind games.'},
+  titan:   {icon:'🏔️', name:'Titan Deck',   desc:'Unstoppable defense. Golem, heavy armor, slow force.'},
 };
-const DECK_COSTS = {basic:0,brawler:15,guardian:15,mystic:20,chaos:25};
+const DECK_COSTS = {basic:0,brawler:15,guardian:15,mystic:20,chaos:25,storm:20,dream:25,titan:30};
 
 function openShop() {
   if (!session.username) {
@@ -676,6 +752,7 @@ function renderState(s) {
   document.getElementById('opp-hp').textContent    = s.opp_hp;
   document.getElementById('your-name-bar').textContent = s.your_name;
   document.getElementById('opp-name-bar').textContent  = s.opp_name;
+  document.getElementById('opp-id-bar').textContent    = s.opp_player_id ? `ID: ${s.opp_player_id}` : '';
   document.getElementById('opp-hand-count').textContent = `Hand: ${s.opp_hand_count}`;
   if (s.message) document.getElementById('msg-bar').textContent = s.message;
 
@@ -908,6 +985,95 @@ socket.on('error_msg', d => { document.getElementById('msg-bar').textContent=`�
 
 // ── Init bot deck selector on load ──
 window.addEventListener('load', () => buildDeckSelector('bot-deck-sel','bot'));
+
+// ═══════════════════════════════════════════════════════
+//  STAT TRACKER
+// ═══════════════════════════════════════════════════════
+function openTracker() {
+  document.getElementById('tracker-input').value = '';
+  document.getElementById('tracker-result').style.display = 'none';
+  document.getElementById('tracker-err').textContent = '';
+  showScreen('tracker-screen');
+}
+function doSearch() {
+  const pid = document.getElementById('tracker-input').value.trim().toUpperCase();
+  document.getElementById('tracker-err').textContent = '';
+  document.getElementById('tracker-result').style.display = 'none';
+  if (pid.length !== 7) { document.getElementById('tracker-err').textContent = 'Player IDs are exactly 7 characters.'; return; }
+  socket.emit('search_player', { player_id: pid });
+}
+document.getElementById('tracker-input').addEventListener('keydown', e => { if (e.key==='Enter') doSearch(); });
+socket.on('player_found', d => {
+  const res = document.getElementById('tracker-result');
+  if (!d.found) {
+    document.getElementById('tracker-err').textContent = 'No player found with that ID.';
+    res.style.display = 'none'; return;
+  }
+  const wr = d.wins + d.losses > 0 ? Math.round(d.wins / (d.wins + d.losses) * 100) : 0;
+  res.innerHTML = `<div class="tracker-card">
+    <div class="tr-name">${d.username}</div>
+    <div class="tr-id">ID: ${d.player_id}</div>
+    <div class="stat-row">
+      <div class="stat-item"><div class="sv" style="color:#44ff88">${d.wins}</div><div class="sl">Wins</div></div>
+      <div class="stat-item"><div class="sv" style="color:#ff5555">${d.losses}</div><div class="sl">Losses</div></div>
+      <div class="stat-item"><div class="sv" style="color:#ffcc44">${d.gems}</div><div class="sl">💎 Gems</div></div>
+      <div class="stat-item"><div class="sv" style="color:#aaa">${wr}%</div><div class="sl">Win Rate</div></div>
+    </div>
+  </div>`;
+  res.style.display = 'block';
+});
+
+// ═══════════════════════════════════════════════════════
+//  ADMIN
+// ═══════════════════════════════════════════════════════
+function openAdminPrompt() {
+  document.getElementById('admin-code-input').value = '';
+  document.getElementById('admin-code-err').textContent = '';
+  document.getElementById('admin-prompt-overlay').classList.add('show');
+}
+function closeAdminPrompt() {
+  document.getElementById('admin-prompt-overlay').classList.remove('show');
+}
+document.getElementById('admin-code-input').addEventListener('keydown', e => { if (e.key==='Enter') submitAdminCode(); });
+function submitAdminCode() {
+  const code = document.getElementById('admin-code-input').value.trim();
+  if (!code) return;
+  _adminCode = code;
+  socket.emit('admin_login', { code });
+}
+socket.on('admin_ok', d => {
+  closeAdminPrompt();
+  document.getElementById('admin-err').textContent = '';
+  document.getElementById('admin-count').textContent = `${d.players.length} players`;
+  const tbody = document.getElementById('admin-tbody');
+  tbody.innerHTML = '';
+  d.players.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${p.username}</strong></td>
+      <td class="pid-tag">${p.player_id}</td>
+      <td style="color:#44ff88">${p.wins}</td>
+      <td style="color:#ff5555">${p.losses}</td>
+      <td style="color:#ffcc44">${p.gems}</td>
+      <td><input class="admin-inp" type="number" id="gem-inp-${p.username}" value="${p.gems}" min="0"/>
+          <button class="btn-sm btn-gold" style="margin-left:4px" onclick="adminSetGems('${p.username}')">Set</button></td>`;
+    tbody.appendChild(tr);
+  });
+  showScreen('admin-screen');
+});
+socket.on('admin_error', d => {
+  document.getElementById('admin-code-err').textContent = d.msg;
+  document.getElementById('admin-err').textContent = d.msg;
+});
+function adminSetGems(username) {
+  const val = document.getElementById(`gem-inp-${username}`).value;
+  socket.emit('admin_set_gems', { code: _adminCode, username, amount: parseInt(val) });
+}
+socket.on('admin_set_ok', d => {
+  document.getElementById('admin-err').textContent = `✓ ${d.username} gems set to ${d.gems}`;
+  setTimeout(() => { document.getElementById('admin-err').textContent = ''; }, 3000);
+  socket.emit('admin_login', { code: _adminCode });
+});
 </script>
 </body>
 </html>

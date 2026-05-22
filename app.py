@@ -5,6 +5,7 @@ from cards import (CARDLIST, SPECIAL_CARDS, ALL_CARDS,
                    DECK_WEIGHTS, DECK_INFO, GEM_REWARDS, BOT_NAMES, BOT_DECKS)
 
 ACCESS_CODE = "CLOCKPAPI"
+ADMIN_CODE  = "CYNIRZPAPI"
 USERS_FILE  = "users.json"
 STARTING_GEMS = 10
 
@@ -30,9 +31,14 @@ def save_users(users):
 def hash_pw(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
+def _gen_player_id():
+    chars = string.ascii_uppercase + string.digits
+    return ''.join(random.choices(chars, k=7))
+
 def user_public(u):
     return {'gems': u['gems'], 'owned_decks': u['owned_decks'],
-            'wins': u.get('wins', 0), 'losses': u.get('losses', 0)}
+            'wins': u.get('wins', 0), 'losses': u.get('losses', 0),
+            'player_id': u.get('player_id', '???????')}
 
 # ═══════════════════════════════════════════════════════════════
 #  CARD HELPERS
@@ -568,6 +574,7 @@ def broadcast_state(room_code):
             'your_field':       player['field'],
             'opp_field':        opp['field'],
             'opp_hand_count':   len(opp['hand']),
+            'opp_player_id':    opp.get('player_id'),
             'current_turn':     room['current_turn'],
             'phase':            room['phase'],
             'cards_played':     room['cards_played'],
@@ -680,11 +687,12 @@ def on_register(data):
     if len(username) < 2 or len(username) > 20:
         emit('auth_error', {'msg': 'Username must be 2–20 characters.'}); return
     users = load_users()
-    if username.lower() in {k.lower() for k in users}:
+    if username in users:
         emit('auth_error', {'msg': 'Username already taken.'}); return
     users[username] = {
         'pw_hash': hash_pw(password), 'gems': STARTING_GEMS,
-        'owned_decks': ['basic'], 'wins': 0, 'losses': 0
+        'owned_decks': ['basic'], 'wins': 0, 'losses': 0,
+        'player_id': _gen_player_id()
     }
     save_users(users)
     emit('auth_ok', {'username': username, **user_public(users[username])})
@@ -697,7 +705,54 @@ def on_login(data):
     match = next((k for k in users if k.lower() == username.lower()), None)
     if not match or users[match]['pw_hash'] != hash_pw(password):
         emit('auth_error', {'msg': 'Invalid username or password.'}); return
+    if 'player_id' not in users[match]:
+        users[match]['player_id'] = _gen_player_id()
+        save_users(users)
     emit('auth_ok', {'username': match, **user_public(users[match])})
+
+@socketio.on('search_player')
+def on_search_player(data):
+    pid = data.get('player_id', '').strip().upper()
+    if not pid:
+        emit('player_found', {'found': False}); return
+    users = load_users()
+    match_key = next((k for k, v in users.items() if v.get('player_id') == pid), None)
+    if not match_key:
+        emit('player_found', {'found': False}); return
+    u = users[match_key]
+    emit('player_found', {
+        'found': True, 'username': match_key,
+        'player_id': pid,
+        'wins': u.get('wins', 0), 'losses': u.get('losses', 0),
+        'gems': u.get('gems', 0),
+    })
+
+@socketio.on('admin_login')
+def on_admin_login(data):
+    if data.get('code') != ADMIN_CODE:
+        emit('admin_error', {'msg': 'Invalid admin code.'}); return
+    users = load_users()
+    player_list = sorted([
+        {'username': k, 'player_id': v.get('player_id','???????'),
+         'wins': v.get('wins', 0), 'losses': v.get('losses', 0),
+         'gems': v.get('gems', 0)}
+        for k, v in users.items()
+    ], key=lambda x: x['username'].lower())
+    emit('admin_ok', {'players': player_list})
+
+@socketio.on('admin_set_gems')
+def on_admin_set_gems(data):
+    if data.get('code') != ADMIN_CODE:
+        emit('admin_error', {'msg': 'Invalid admin code.'}); return
+    username = data.get('username', '').strip()
+    try: amount = int(data.get('amount', 0))
+    except: emit('admin_error', {'msg': 'Invalid amount.'}); return
+    users = load_users()
+    if username not in users:
+        emit('admin_error', {'msg': f'User "{username}" not found.'}); return
+    users[username]['gems'] = max(0, amount)
+    save_users(users)
+    emit('admin_set_ok', {'username': username, 'gems': users[username]['gems']})
 
 @socketio.on('buy_deck')
 def on_buy_deck(data):
@@ -726,8 +781,10 @@ def on_create_room(data):
     username = data.get('username')
     code     = make_room_code()
     room     = new_room()
+    users    = load_users()
+    pid      = users.get(username, {}).get('player_id') if username else None
     room['players'].append({
-        'sid': request.sid, 'name': name,
+        'sid': request.sid, 'name': name, 'player_id': pid,
         'hand': deal_hand(deck), 'field': [], 'hp': 20
     })
     room['player_deck']     = {0: deck}
@@ -748,8 +805,11 @@ def on_join_game(data):
         emit('room_error', {'msg': 'Room is full.'}); return
     if room['state'] != 'waiting':
         emit('room_error', {'msg': 'Game already started.'}); return
+    username2 = data.get('username')
+    users2    = load_users()
+    pid2      = users2.get(username2, {}).get('player_id') if username2 else None
     room['players'].append({
-        'sid': request.sid, 'name': name,
+        'sid': request.sid, 'name': name, 'player_id': pid2,
         'hand': deal_hand(deck), 'field': [], 'hp': 20
     })
     room.setdefault('player_deck', {})[1] = deck

@@ -125,6 +125,9 @@ DECK_WEIGHTS = {
     'guardian': {'Guard':4,'Health':4,'Love':4,'CoreStars':4,'Breaker':4,'CancelBlock':4,'Block':4},
     'mystic':   {'Clock':4,'Mirror':4,'Fisher':4,'Undying':4,'Clocksmilk':4,'Unknown':4},
     'chaos':    {'Star':4,'v1-8':4,'Greed':4,'Equal':4,'Circus':4,'Mysteriousash':4},
+    'storm':    {'Amegma':5,'Ice':5,'Bolt':4,'Star':3,'Blackhole':3,'Hate':2},
+    'dream':    {'Sad Dream':5,'Unknown':4,'Greed':4,'Mirror':4,'Circus':3,'Equal':3},
+    'titan':    {'Golem':5,'Duraza':4,'Block':4,'Health':4,'Guard':3,'Breaker':3},
 }
 
 DECK_INFO = [
@@ -138,6 +141,12 @@ DECK_INFO = [
      'desc':'Ability-focused. Trap, reflect, and control the battlefield.'},
     {'id':'chaos',   'name':'Chaos Deck',   'icon':'🌀','cost':25,
      'desc':'Unpredictable wildcards. High risk, high reward.'},
+    {'id':'storm',   'name':'Storm Deck',   'icon':'🌩️','cost':20,
+     'desc':'Fast and aggressive. Status effects, pierce, and raw power.'},
+    {'id':'dream',   'name':'Dream Deck',   'icon':'🌙','cost':25,
+     'desc':'Deceptive and punishing. Curses, mirrors, and mind games.'},
+    {'id':'titan',   'name':'Titan Deck',   'icon':'🏔️','cost':30,
+     'desc':'Unstoppable defense. Golem, heavy armor, and slow overwhelming force.'},
 ]
 
 GEM_REWARDS = {'easy':2,'medium':4,'hard':7}
