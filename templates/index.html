@@ -101,8 +101,10 @@
 
     /* ═══════════════ GAME UI ═══════════════ */
     .player-bar{display:flex;justify-content:space-between;align-items:center;background:#1a1a1a;border-radius:8px;padding:6px 12px;font-size:.85rem;gap:8px;flex-wrap:wrap}
-    /* Leave space for Edge "Install app" icon in URL bar when not running standalone */
-    @media (display-mode: browser){ #game-screen .player-bar:first-of-type{padding-right:60px} }
+    /* Always reserve space on the right of the opponent bar so the browser's
+       Install-app icon, extension icons, or scrollbar can't cover enemy HP. */
+    .player-bar.top-bar{padding-right:70px}
+    @media (display-mode: standalone){ .player-bar.top-bar{padding-right:12px} }
     .player-bar .pname{font-weight:bold}
     .player-bar .hp{color:#ff3333;font-weight:bold}
     .field-label{font-size:.62rem;color:#444;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
@@ -395,7 +397,7 @@
 
 <!-- ═══ GAME ═══ -->
 <div class="screen" id="game-screen">
-  <div class="player-bar">
+  <div class="player-bar top-bar">
     <div style="display:flex;flex-direction:column;gap:1px">
       <span class="pname" id="opp-name-bar">Opponent</span>
       <span style="font-family:monospace;font-size:.58rem;color:#444" id="opp-id-bar"></span>
