@@ -52,17 +52,10 @@ def new_card(base):
         c['guard_remaining'] = 2
     if _has(c, 'v18_reroll'):
         c['atk'] = random.randint(0, 8)
-    if _has(c, 'duraza_dual'):
-        c['duraza_strike2_atk'] = c['atk']
     return c
 
 def _buff_atk(card, amount):
-    """Apply an ATK buff. For Duraza dual-strike: only buffs of +1 scale both
-    strikes; larger buffs only boost the first strike."""
     card['atk'] += amount
-    if _has(card, 'duraza_dual'):
-        if amount <= 1:
-            card['duraza_strike2_atk'] = card.get('duraza_strike2_atk', card['atk'] - amount) + amount
 
 def _is_dead(card):
     if card.get('base_def', 1) == 0:
@@ -290,7 +283,7 @@ def apply_damage(card, damage, is_aoe=False, bypass_guard=False, bypass_block=Fa
     if is_aoe and _has(card, 'aoe_immune'): return 0
     if not bypass_guard and card.get('guard_remaining', 0) > 0: return 0
     if _has(card, 'duraza_hit_limit'):
-        if card.get('hit_this_turn', 0) >= 1: return 0
+        if card.get('hit_this_turn', 0) >= 2: return 0
         card['hit_this_turn'] = card.get('hit_this_turn', 0) + 1
     if card.get('frost_shield_turns', 0) > 0:
         damage = max(0, damage // 2)
@@ -373,12 +366,6 @@ def _exec_attack(room, room_code, pi, ai, ti):
         actual = apply_damage(tgt, dmg)
         if actual == 0: msgs.append(f"{tgt['name']} blocked!")
         else: msgs.append(f"{atk['name']} hits {tgt['name']} for {actual}!")
-
-    # Duraza double strike (second hit uses duraza_strike2_atk if set)
-    if _has(atk, 'duraza_dual'):
-        dmg2 = atk.get('duraza_strike2_atk', dmg)
-        second = apply_damage(tgt, dmg2)
-        if second > 0: msgs.append(f"Double Strike! +{second}!")
 
     # Freeze (Clock)
     if _has(atk, 'freeze') and not tgt.get('frozen'):
