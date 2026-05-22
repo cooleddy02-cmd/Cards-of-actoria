@@ -2,12 +2,12 @@
 // Network-first for app shell (so updates land immediately),
 // cache-first for icons/manifest (rarely change),
 // pass-through for socket.io and dynamic /decks (never cache).
-const CACHE = 'factoria-v3';
+const CACHE = 'factoria-v4';
 const STATIC_ASSETS = [
   '/static/manifest.json',
-  '/static/icons/icon-192.svg',
-  '/static/icons/icon-512.svg',
-  '/static/icons/icon-maskable.svg',
+  '/static/icons/icon-192.png',
+  '/static/icons/icon-512.png',
+  '/static/icons/icon-maskable.png',
 ];
 
 self.addEventListener('install', e => {
