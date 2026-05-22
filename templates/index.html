@@ -210,8 +210,20 @@
 <body>
 
 <!-- ═══ ACCESS ═══ -->
-<!-- Floating "Install App" button — appears only when the browser supports PWA install -->
-<button id="install-app-btn" onclick="installApp()" style="display:none;position:fixed;top:12px;right:12px;z-index:999;padding:8px 14px;border-radius:20px;border:1px solid #d4af37;background:#0d0d0d;color:#d4af37;font-size:.85rem;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5)">📲 Install App</button>
+<!-- Floating "Install App" button — always visible, shows platform-specific instructions on click -->
+<button id="install-app-btn" onclick="installApp()" style="position:fixed;top:12px;right:12px;z-index:999;padding:8px 14px;border-radius:20px;border:1px solid #d4af37;background:#0d0d0d;color:#d4af37;font-size:.85rem;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5)">📲 Install App</button>
+
+<!-- Install instructions overlay -->
+<div id="install-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;align-items:center;justify-content:center;padding:20px" onclick="if(event.target.id==='install-overlay')document.getElementById('install-overlay').style.display='none'">
+  <div style="background:#1a1a1a;border:1px solid #d4af37;border-radius:14px;padding:22px;max-width:380px;width:100%;color:#fff;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h3 style="color:#d4af37">📲 Install Clockpapi</h3>
+      <button onclick="document.getElementById('install-overlay').style.display='none'" style="background:transparent;border:none;color:#fff;font-size:1.4rem;cursor:pointer">×</button>
+    </div>
+    <div id="install-instructions" style="font-size:.9rem;line-height:1.5"></div>
+    <p style="font-size:.7rem;color:#888;margin-top:14px">⚠️ Installing from the Replit preview won't work — open the live URL in your phone or computer's browser first.</p>
+  </div>
+</div>
 
 <div class="screen active" id="access-screen">
   <h1>Card Game</h1>
