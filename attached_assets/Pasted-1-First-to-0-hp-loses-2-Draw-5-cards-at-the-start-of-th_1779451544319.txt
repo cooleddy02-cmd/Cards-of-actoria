@@ -1,0 +1,35 @@
+1 - First to 0 hp loses
+
+2 - Draw 5 cards at the start of the game you can only have 2 copies of the same card the player who is first draws +1 card[can also reroll 1 card when you draw the first 5 cards]
+
+3 - Flip a coin to see who goes first, on the first turn for both players damage can’t be dealt to the player directly
+
+5 - Draw 1 card at the start of each turn, except the first turn of the game
+
+6 - Place down 1 or 2 cards each turn
+
+7 - Your cards only attack on your turn, each card attacks the cards in the same column if there is no card blocking them, then they attack the player
+
+8 - You can choose with what cards you attack and in what order
+
+9 - DEF and Damage Rules Cards can only go into negative DEF from effects, not from damage. If a card’s DEF is 0 or higher and it takes damage that reduces it to 0 or below, it is destroyed and any extra damage is dealt to the player. If a card has negative DEF, it does not block damage. Damage dealt to it is increased by the amount of negative DEF, and the total is dealt to the player. (Example: −5 DEF hit by 5 damage = 10 damage to the player.)
+
+11 - The same card can only be revived once per two turns and if a card was sacrificed it can no longer be revived, a card can only be revived up to 3 times max.
+
+12 - If a card says deals x amount of damage to a card and that x amount of damage is above the defense the player takes the extra damage.
+
+13 - Max cards in hand 10 if you gain more cards when you have 10  cards in your hand the extra cards go into storage and can’t be taken out of the storage the same turn if you have 8 cards and 2 cards in storage after drawing your cards the cards in storage are added into your hand, cards that are moved from storage to hand can’t be played that turn.
+
+14 - You can only activate one quick effect per turn.
+
+15 - All players start with 25 hp.
+
+16 - One card can be desummoned as long as the player has not summoned any cards in the past 2 turns only on your side of the field
+
+17 - Block, for each block on a card it blocks one attack towards the card for each attack the card loses one block
+
+18 - When a card is banished the player who had the card while it was banished can no longer play the card have the card revive the card in anyway the other player or players can still play the card normaly
+
+19 - You can only sacrifice cards from your side of the field and your own hand
+
+20 - AoE attacks, bottom players AoE attacks go from left to right and top player from right to left
