@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request
-from flask_socketio import SocketIO, emit, join_room as sio_join_room
+from flask_socketio import SocketIO, emit, join_room as sio_join_room, join_room, leave_room
 import random, string, copy, uuid, json, hashlib, os
 from cards import (CARDLIST, SPECIAL_CARDS, ALL_CARDS,
                    DECK_WEIGHTS, DECK_INFO, GEM_REWARDS, BOT_NAMES, BOT_DECKS)
@@ -38,7 +38,40 @@ def _gen_player_id():
 def user_public(u):
     return {'gems': u['gems'], 'owned_decks': u['owned_decks'],
             'wins': u.get('wins', 0), 'losses': u.get('losses', 0),
-            'player_id': u.get('player_id', '???????')}
+            'player_id': u.get('player_id', '???????'),
+            'custom_decks': u.get('custom_decks', [])}
+
+# ═══════════════════════════════════════════════════════════════
+#  CUSTOM DECKS
+# ═══════════════════════════════════════════════════════════════
+from cards import ALL_CARDS
+CUSTOM_DECKS_RUNTIME = {}  # {deck_id: [base_card_dict, ...]}
+
+def calc_deck_price(card_names):
+    score = 0
+    for name in card_names:
+        c = next((x for x in ALL_CARDS if x['name'] == name), None)
+        if not c: continue
+        atk = c.get('atk', 0)
+        defv = c.get('def', 0)
+        specials = len(c.get('specials', []))
+        rarity = 4 if c.get('no_normal_play') else (3 if c.get('no_draw') else 1)
+        score += (atk + defv + specials * 2) * rarity
+    return max(150, int(150 + score * 4))
+
+def register_custom_deck(deck_id, card_names):
+    pool = []
+    for name in card_names:
+        c = next((x for x in ALL_CARDS if x['name'] == name), None)
+        if c and not c.get('no_normal_play') and not c.get('no_draw'):
+            pool.append(c)
+    if pool:
+        CUSTOM_DECKS_RUNTIME[deck_id] = pool
+
+def load_all_custom_decks():
+    for u in load_users().values():
+        for d in u.get('custom_decks', []):
+            register_custom_deck(d['id'], d['cards'])
 
 # ═══════════════════════════════════════════════════════════════
 #  CARD HELPERS
@@ -73,7 +106,9 @@ def _is_dead(card):
     return card['def'] <= 0
 
 def draw_from_deck(deck_type='basic'):
-    drawable = [c for c in CARDLIST if not c.get('no_draw')]
+    if deck_type in CUSTOM_DECKS_RUNTIME:
+        return new_card(random.choice(CUSTOM_DECKS_RUNTIME[deck_type]))
+    drawable = [c for c in CARDLIST if not c.get('no_draw') and not c.get('no_normal_play')]
     weights  = DECK_WEIGHTS.get(deck_type, {})
     if not weights:
         return new_card(random.choice(drawable))
@@ -782,6 +817,7 @@ def on_register(data):
         'player_id': _gen_player_id()
     }
     save_users(users)
+    _bind_sid(username)
     emit('auth_ok', {'username': username, **user_public(users[username])})
 
 @socketio.on('login')
@@ -795,6 +831,7 @@ def on_login(data):
     if 'player_id' not in users[match]:
         users[match]['player_id'] = _gen_player_id()
         save_users(users)
+    _bind_sid(match)
     emit('auth_ok', {'username': match, **user_public(users[match])})
 
 @socketio.on('search_player')
@@ -1415,8 +1452,465 @@ def on_sacrifice_summon(data):
     room['message'] = f"✨ {player['name']} summoned {target_name}!"
     broadcast_state(room_code)
 
+# ═══════════════════════════════════════════════════════════════
+#  CASINO + GEM GIFTING + CUSTOM DECKS
+# ═══════════════════════════════════════════════════════════════
+import casino, threading
+import uuid as _uuid_mod
+poker_tables = {}        # {code: table_state}
+bj_sessions  = {}        # {sid: {'state': bj_state, 'bet': int, 'username': str}}
+_sid_user    = {}        # {sid: username} — server-trusted session identity
+_users_lock  = threading.RLock()
+
+def _bind_sid(username):
+    _sid_user[request.sid] = username
+
+def _auth_user():
+    """Return server-trusted username for this socket, or None."""
+    return _sid_user.get(request.sid)
+
+def _user_or_err(_ignored=None):
+    """Resolve current authenticated user; ignores client-sent username."""
+    username = _auth_user()
+    if not username:
+        emit('casino_error', {'msg': 'Not logged in.'}); return None, None, None
+    users = load_users()
+    if username not in users:
+        emit('casino_error', {'msg': 'User not found.'}); return None, None, None
+    return users, users[username], username
+
+def _push_gems(username, amount):
+    users = load_users()
+    if username in users:
+        users[username]['gems'] = max(0, users[username]['gems'] + amount)
+        save_users(users)
+        socketio.emit('gem_reward', {'amount': amount, 'total': users[username]['gems']}, to=request.sid)
+
+# ── SLOTS ──
+@socketio.on('slots_spin')
+def on_slots_spin(data):
+    if not isinstance(data, dict): data = {}
+    try: bet = int(data.get('bet', 10))
+    except: emit('casino_error', {'msg': 'Invalid bet.'}); return
+    if bet < 1 or bet > 1000:
+        emit('casino_error', {'msg': 'Bet must be 1–1000 gems.'}); return
+    with _users_lock:
+        users, u, _ = _user_or_err()
+        if u is None: return
+        if u['gems'] < bet:
+            emit('casino_error', {'msg': 'Not enough gems.'}); return
+        result = casino.slot_spin(bet)
+        u['gems'] += result['net']
+        save_users(users)
+        gems = u['gems']
+    emit('slots_result', {**result, 'gems': gems})
+
+# ── BLACKJACK ──
+@socketio.on('bj_start')
+def on_bj_start(data):
+    if not isinstance(data, dict): data = {}
+    try: bet = int(data.get('bet', 10))
+    except: emit('casino_error', {'msg': 'Invalid bet.'}); return
+    if bet < 5 or bet > 1000:
+        emit('casino_error', {'msg': 'Bet must be 5–1000 gems.'}); return
+    with _users_lock:
+        users, u, username = _user_or_err()
+        if u is None: return
+        if u['gems'] < bet:
+            emit('casino_error', {'msg': 'Not enough gems.'}); return
+        state = {}
+        casino.bj_deal_initial(state)
+        bj_sessions[request.sid] = {'state': state, 'bet': bet, 'username': username}
+        u['gems'] -= bet
+        save_users(users)
+    _bj_emit(request.sid)
+
+def _bj_emit(sid):
+    sess = bj_sessions.get(sid)
+    if not sess: return
+    s = sess['state']
+    dealer_show = s['dealer'] if s['done'] else [s['dealer'][0], {'r':'?','s':'?'}]
+    payload = {
+        'player': s['player'], 'dealer': dealer_show,
+        'p_score': casino.bj_score(s['player']),
+        'd_score': casino.bj_score(s['dealer']) if s['done'] else casino.bj_score([s['dealer'][0]]),
+        'done': s['done'], 'result': s['result'], 'bet': sess['bet'],
+    }
+    if s['done']:
+        with _users_lock:
+            users = load_users()
+            if sess['username'] in users:
+                u = users[sess['username']]
+                if s['result'] == 'win':
+                    u['gems'] += sess['bet'] * 2
+                    payload['payout'] = sess['bet'] * 2
+                elif s['result'] == 'push':
+                    u['gems'] += sess['bet']
+                    payload['payout'] = sess['bet']
+                else:
+                    payload['payout'] = 0
+                save_users(users)
+                payload['gems'] = u['gems']
+        bj_sessions.pop(sid, None)
+    socketio.emit('bj_state', payload, to=sid)
+
+@socketio.on('bj_hit')
+def on_bj_hit(data):
+    sess = bj_sessions.get(request.sid)
+    if not sess: return
+    casino.bj_hit(sess['state'])
+    _bj_emit(request.sid)
+
+@socketio.on('bj_stand')
+def on_bj_stand(data):
+    sess = bj_sessions.get(request.sid)
+    if not sess: return
+    casino.bj_dealer_play(sess['state'])
+    _bj_emit(request.sid)
+
+# ── TEXAS HOLD'EM ──
+def _table_emit(code):
+    t = poker_tables.get(code)
+    if not t: return
+    for p in t['players']:
+        if p['sid']:
+            socketio.emit('poker_state', casino.public_view(t, p['idx']) if False else
+                          _poker_view_for(t, p), to=p['sid'])
+
+def _poker_view_for(t, player):
+    # assign idx for view
+    for i, pp in enumerate(t['players']):
+        pp['idx'] = i
+    viewer_idx = next((i for i,pp in enumerate(t['players']) if pp['sid'] == player['sid']), None)
+    return casino.public_view(t, viewer_idx)
+
+def _run_bot_turns(code):
+    t = poker_tables.get(code)
+    if not t: return
+    safety = 60
+    while safety > 0 and t['phase'] not in ('waiting', 'showdown'):
+        cur = t['players'][t['turn_idx']]
+        if not cur['is_bot']: break
+        action, amount = casino.bot_decide(t, t['turn_idx'])
+        casino.player_action(t, t['turn_idx'], action, amount)
+        safety -= 1
+    _table_emit(code)
+
+@socketio.on('poker_list')
+def on_poker_list(data):
+    listing = []
+    for code, t in poker_tables.items():
+        listing.append({
+            'code': code,
+            'players': len(t['players']),
+            'phase': t['phase'],
+            'big_blind': t['big_blind'],
+        })
+    emit('poker_list', {'tables': listing})
+
+@socketio.on('poker_create')
+def on_poker_create(data):
+    if not isinstance(data, dict): data = {}
+    username = _auth_user()
+    if not username:
+        emit('casino_error', {'msg': 'Log in to play poker.'}); return
+    name = username
+    try: sb = max(1, int(data.get('small_blind', 10)))
+    except: sb = 10
+    try: buyin = max(sb * 20, int(data.get('buyin', 200)))
+    except: buyin = 200
+    add_bots = bool(data.get('add_bots'))
+    with _users_lock:
+        users = load_users()
+        if username not in users: return
+        if users[username]['gems'] < buyin:
+            emit('casino_error', {'msg': 'Not enough gems for buy-in.'}); return
+        users[username]['gems'] -= buyin
+        save_users(users)
+    code = ''.join(random.choices(string.ascii_uppercase, k=5))
+    while code in poker_tables:
+        code = ''.join(random.choices(string.ascii_uppercase, k=5))
+    t = casino.new_poker_table(code, name, request.sid, username, sb)
+    t['buyin'] = buyin
+    t['players'][0]['chips'] = buyin
+    if add_bots:
+        for botn in ['Bot Alice','Bot Bob','Bot Carol']:
+            casino.add_bot(t, botn)
+            t['players'][-1]['chips'] = buyin
+    poker_tables[code] = t
+    join_room(code)
+    emit('poker_joined', {'code': code, 'your_idx': 0})
+    _table_emit(code)
+
+@socketio.on('poker_join')
+def on_poker_join(data):
+    if not isinstance(data, dict): data = {}
+    username = _auth_user()
+    if not username:
+        emit('casino_error', {'msg': 'Log in to join poker.'}); return
+    code = (data.get('code') or '').upper()
+    name = username
+    t = poker_tables.get(code)
+    if not t:
+        emit('casino_error', {'msg': 'Table not found.'}); return
+    if any(p['sid'] == request.sid for p in t['players']):
+        emit('casino_error', {'msg': 'Already at this table.'}); return
+    if len(t['players']) >= 8:
+        emit('casino_error', {'msg': 'Table full.'}); return
+    buyin = t.get('buyin', 200)
+    with _users_lock:
+        users = load_users()
+        if username not in users: return
+        if users[username]['gems'] < buyin:
+            emit('casino_error', {'msg': 'Not enough gems for buy-in.'}); return
+        users[username]['gems'] -= buyin
+        save_users(users)
+    t['players'].append({
+        'name': name, 'sid': request.sid, 'user': username,
+        'chips': buyin, 'hand': [], 'bet': 0, 'folded': True,
+        'all_in': False, 'is_bot': False, 'sit_out': False, 'acted': False,
+    })
+    join_room(code)
+    emit('poker_joined', {'code': code, 'your_idx': len(t['players']) - 1})
+    _table_emit(code)
+
+@socketio.on('poker_start_hand')
+def on_poker_start_hand(data):
+    code = (data.get('code') or '').upper()
+    t = poker_tables.get(code)
+    if not t: return
+    if t['phase'] not in ('waiting', 'showdown'):
+        emit('casino_error', {'msg': 'Hand in progress.'}); return
+    casino.start_hand(t)
+    _table_emit(code)
+    _run_bot_turns(code)
+
+@socketio.on('poker_action')
+def on_poker_action(data):
+    code = (data.get('code') or '').upper()
+    action = data.get('action')
+    try: amount = int(data.get('amount', 0))
+    except: amount = 0
+    t = poker_tables.get(code)
+    if not t: return
+    pidx = next((i for i,p in enumerate(t['players']) if p['sid'] == request.sid), None)
+    if pidx is None: return
+    ok, msg = casino.player_action(t, pidx, action, amount)
+    if not ok:
+        emit('casino_error', {'msg': msg}); return
+    _table_emit(code)
+    _run_bot_turns(code)
+
+@socketio.on('poker_leave')
+def on_poker_leave(data):
+    code = (data.get('code') or '').upper()
+    _remove_from_table(request.sid, code)
+
+def _remove_from_table(sid, code=None):
+    codes = [code] if code else list(poker_tables.keys())
+    for c in codes:
+        t = poker_tables.get(c)
+        if not t: continue
+        idx = next((i for i,p in enumerate(t['players']) if p['sid'] == sid), None)
+        if idx is None: continue
+        p = t['players'][idx]
+        # Refund remaining chips + any live bet to user
+        refund = p['chips'] + p.get('bet', 0)
+        if p['user'] and refund > 0:
+            with _users_lock:
+                users = load_users()
+                if p['user'] in users:
+                    users[p['user']]['gems'] += refund
+                    save_users(users)
+        # Mark as folded for in-progress hand to keep state consistent
+        if t['phase'] not in ('waiting','showdown') and not p['folded']:
+            p['folded'] = True
+            p['acted'] = True
+        t['players'].pop(idx)
+        try: leave_room(c)
+        except: pass
+        if not any(not pp['is_bot'] for pp in t['players']):
+            poker_tables.pop(c, None)
+        else:
+            _table_emit(c)
+
+# ── GEM GIFTING ──
+@socketio.on('send_gems')
+def on_send_gems(data):
+    if not isinstance(data, dict): data = {}
+    sender = _auth_user()
+    if not sender:
+        emit('casino_error', {'msg': 'Not logged in.'}); return
+    target_pid = (data.get('target_player_id') or '').strip().upper()
+    try: amount = int(data.get('amount', 0))
+    except: emit('casino_error', {'msg': 'Invalid amount.'}); return
+    if amount < 1:
+        emit('casino_error', {'msg': 'Amount must be at least 1.'}); return
+    with _users_lock:
+        users = load_users()
+        if sender not in users:
+            emit('casino_error', {'msg': 'Not logged in.'}); return
+        if users[sender]['gems'] < amount:
+            emit('casino_error', {'msg': 'Not enough gems.'}); return
+        target_key = next((k for k,v in users.items() if v.get('player_id') == target_pid), None)
+        if not target_key:
+            emit('casino_error', {'msg': 'Player ID not found.'}); return
+        if target_key == sender:
+            emit('casino_error', {'msg': "Can't gift to yourself."}); return
+        users[sender]['gems'] -= amount
+        users[target_key]['gems'] += amount
+        save_users(users)
+        gems = users[sender]['gems']
+    emit('gift_ok', {'to': target_key, 'amount': amount, 'gems': gems})
+
+# ── DECK FORGE + MARKETPLACE ──
+@socketio.on('forge_quote')
+def on_forge_quote(data):
+    card_names = data.get('cards', [])
+    if not isinstance(card_names, list):
+        emit('forge_quote_result', {'price': 0, 'valid': False, 'msg': 'Invalid cards.'}); return
+    if len(card_names) < 6 or len(card_names) > 30:
+        emit('forge_quote_result', {'price': 0, 'valid': False, 'msg': 'Need 6–30 cards.'}); return
+    valid_names = {c['name'] for c in ALL_CARDS if not c.get('no_normal_play') and not c.get('no_draw')}
+    for n in card_names:
+        if n not in valid_names:
+            emit('forge_quote_result', {'price': 0, 'valid': False, 'msg': f'Card "{n}" not allowed.'}); return
+    price = calc_deck_price(card_names)
+    emit('forge_quote_result', {'price': price, 'valid': True, 'msg': 'OK'})
+
+@socketio.on('forge_deck')
+def on_forge_deck(data):
+    if not isinstance(data, dict): data = {}
+    username = _auth_user()
+    if not username:
+        emit('casino_error', {'msg': 'Not logged in.'}); return
+    deck_name = (data.get('name') or '').strip()[:24]
+    card_names = data.get('cards', [])
+    if not deck_name:
+        emit('casino_error', {'msg': 'Deck needs a name.'}); return
+    if not isinstance(card_names, list) or len(card_names) < 6 or len(card_names) > 30:
+        emit('casino_error', {'msg': 'Need 6–30 cards.'}); return
+    valid_names = {c['name'] for c in ALL_CARDS if not c.get('no_normal_play') and not c.get('no_draw')}
+    for n in card_names:
+        if not isinstance(n, str) or n not in valid_names:
+            emit('casino_error', {'msg': f'Invalid card.'}); return
+    price = calc_deck_price(card_names)
+    with _users_lock:
+        users = load_users()
+        if username not in users:
+            emit('casino_error', {'msg': 'Not logged in.'}); return
+        u = users[username]
+        if u['gems'] < price:
+            emit('casino_error', {'msg': f'Need {price} gems, have {u["gems"]}.'}); return
+        u['gems'] -= price
+        deck_id = 'cd_' + _uuid_mod.uuid4().hex[:10]
+        deck_obj = {'id': deck_id, 'name': deck_name, 'cards': card_names,
+                    'price': price, 'for_sale': False, 'sale_price': price,
+                    'owner': username, 'bought': False}
+        u.setdefault('custom_decks', []).append(deck_obj)
+        u.setdefault('owned_decks', ['basic']).append(deck_id)
+        save_users(users)
+        out_gems, out_cd, out_od = u['gems'], list(u['custom_decks']), list(u['owned_decks'])
+    register_custom_deck(deck_id, card_names)
+    emit('forge_ok', {'gems': out_gems, 'custom_decks': out_cd, 'owned_decks': out_od})
+
+@socketio.on('list_market')
+def on_list_market(data):
+    users = load_users()
+    listings = []
+    for uname, u in users.items():
+        for d in u.get('custom_decks', []):
+            if d.get('for_sale'):
+                listings.append({'deck_id': d['id'], 'name': d['name'],
+                                 'cards': d['cards'], 'price': d['sale_price'],
+                                 'seller': uname})
+    emit('market_list', {'listings': listings})
+
+@socketio.on('toggle_sale')
+def on_toggle_sale(data):
+    if not isinstance(data, dict): data = {}
+    username = _auth_user()
+    if not username:
+        emit('casino_error', {'msg': 'Not logged in.'}); return
+    deck_id = data.get('deck_id')
+    try: sale_price = max(50, int(data.get('sale_price', 200)))
+    except: sale_price = 200
+    with _users_lock:
+        users = load_users()
+        if username not in users: return
+        for d in users[username].get('custom_decks', []):
+            if d['id'] == deck_id:
+                if d.get('bought'):
+                    emit('casino_error', {'msg': 'Bought decks cannot be re-sold.'}); return
+                if d.get('owner') and d['owner'] != username:
+                    emit('casino_error', {'msg': 'Not your deck to list.'}); return
+                d['for_sale'] = not d.get('for_sale', False)
+                d['sale_price'] = sale_price
+                save_users(users)
+                emit('forge_ok', {'gems': users[username]['gems'],
+                                  'custom_decks': users[username]['custom_decks'],
+                                  'owned_decks': users[username]['owned_decks']})
+                return
+
+@socketio.on('buy_custom_deck')
+def on_buy_custom_deck(data):
+    if not isinstance(data, dict): data = {}
+    username = _auth_user()
+    if not username:
+        emit('casino_error', {'msg': 'Not logged in.'}); return
+    deck_id = data.get('deck_id')
+    with _users_lock:
+        users = load_users()
+        if username not in users:
+            emit('casino_error', {'msg': 'Not logged in.'}); return
+        buyer = users[username]
+        seller_name, src_deck = None, None
+        for uname, u in users.items():
+            for d in u.get('custom_decks', []):
+                if d['id'] == deck_id and d.get('for_sale') and not d.get('bought'):
+                    seller_name, src_deck = uname, d; break
+            if src_deck: break
+        if not src_deck:
+            emit('casino_error', {'msg': 'Listing no longer available.'}); return
+        if seller_name == username:
+            emit('casino_error', {'msg': "Can't buy your own deck."}); return
+        if deck_id in buyer.get('owned_decks', []):
+            emit('casino_error', {'msg': 'Already owned.'}); return
+        price = src_deck['sale_price']
+        if buyer['gems'] < price:
+            emit('casino_error', {'msg': f'Need {price} gems.'}); return
+        buyer['gems'] -= price
+        users[seller_name]['gems'] += price
+        buyer.setdefault('owned_decks', ['basic']).append(deck_id)
+        buyer.setdefault('custom_decks', []).append({
+            'id': deck_id + '_owned_' + _uuid_mod.uuid4().hex[:4],
+            'name': src_deck['name'] + ' (bought)',
+            'cards': list(src_deck['cards']),
+            'price': price, 'for_sale': False, 'sale_price': price,
+            'owner': seller_name, 'bought': True,
+        })
+        save_users(users)
+        out = (buyer['gems'], list(buyer['custom_decks']), list(buyer['owned_decks']))
+    register_custom_deck(deck_id, src_deck['cards'])
+    emit('forge_ok', {'gems': out[0], 'custom_decks': out[1], 'owned_decks': out[2]})
+
+@socketio.on('list_all_cards')
+def on_list_all_cards(data):
+    out = []
+    for c in ALL_CARDS:
+        if c.get('no_normal_play') or c.get('no_draw'): continue
+        out.append({'name': c['name'], 'atk': c.get('atk',0), 'def': c.get('def',0),
+                    'specials': [{'name': s['name'], 'desc': s['desc']} for s in c.get('specials',[])]})
+    emit('all_cards', {'cards': out})
+
+# Load existing custom decks into runtime on startup
+load_all_custom_decks()
+
 @socketio.on('disconnect')
 def on_disconnect():
+    _remove_from_table(request.sid)
+    bj_sessions.pop(request.sid, None)
+    _sid_user.pop(request.sid, None)
     for code, room in list(rooms.items()):
         for player in room['players']:
             if player['sid'] == request.sid:

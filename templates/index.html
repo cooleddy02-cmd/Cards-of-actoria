@@ -272,6 +272,18 @@
     <span class="icon">📊</span>
     <div class="info"><h3>Stat Tracker</h3><p>Look up any player's W/L and gems by Player ID</p></div>
   </button>
+  <button class="menu-btn" id="menu-casino-btn" onclick="openCasino()">
+    <span class="icon">🎰</span>
+    <div class="info"><h3>Casino</h3><p>Slots, blackjack, and Texas hold'em tables</p></div>
+  </button>
+  <button class="menu-btn" id="menu-forge-btn" onclick="openForge()">
+    <span class="icon">🔨</span>
+    <div class="info"><h3>Forge Deck</h3><p>Build your own deck — buy, sell, and trade</p></div>
+  </button>
+  <button class="menu-btn" id="menu-gift-btn" onclick="openGiftOverlay()">
+    <span class="icon">🎁</span>
+    <div class="info"><h3>Gift Gems</h3><p>Send gems to another player by their ID</p></div>
+  </button>
   <div style="text-align:center;margin-top:-4px">
     <button class="btn-sec btn-sm" onclick="openAdminPrompt()">⚙️ Admin</button>
   </div>
@@ -472,6 +484,180 @@
       <tbody id="admin-tbody"></tbody>
     </table>
   </div>
+</div>
+
+<!-- ═══ CASINO LOBBY ═══ -->
+<div class="screen" id="casino-screen">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <button class="btn-sec btn-sm" onclick="showScreen('menu-screen')">← Back</button>
+    <h2 style="margin:0">🎰 Casino</h2>
+    <div class="gem-badge">💎 <span id="casino-gem-count">0</span></div>
+  </div>
+  <button class="menu-btn" onclick="openSlots()">
+    <span class="icon">🎰</span><div class="info"><h3>Slots</h3><p>Spin to win — match 3 for big payouts</p></div>
+  </button>
+  <button class="menu-btn" onclick="openBJ()">
+    <span class="icon">🃏</span><div class="info"><h3>Blackjack</h3><p>Beat the dealer to 21 without busting</p></div>
+  </button>
+  <button class="menu-btn" onclick="openPokerLobby()">
+    <span class="icon">♠️</span><div class="info"><h3>Texas Hold'em</h3><p>Join a table — play with bots or real players</p></div>
+  </button>
+</div>
+
+<!-- ═══ SLOTS ═══ -->
+<div class="screen" id="slots-screen">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <button class="btn-sec btn-sm" onclick="showScreen('casino-screen')">← Back</button>
+    <div class="gem-badge">💎 <span id="slots-gem-count">0</span></div>
+  </div>
+  <h2 style="text-align:center">🎰 Slots</h2>
+  <div style="display:flex;justify-content:center;gap:14px;font-size:4rem;background:#0a0a0a;padding:24px;border-radius:14px;border:2px solid #333">
+    <span id="slot-r0">❓</span><span id="slot-r1">❓</span><span id="slot-r2">❓</span>
+  </div>
+  <div id="slot-result" style="text-align:center;font-size:1.1rem;min-height:1.4rem;color:#ffcc44"></div>
+  <div style="display:flex;gap:8px;align-items:center;justify-content:center">
+    <label class="field-label">Bet:</label>
+    <input id="slot-bet" type="number" value="10" min="1" max="1000" style="max-width:100px"/>
+    <button onclick="doSlotSpin()" style="width:140px">Spin</button>
+  </div>
+  <div style="font-size:.72rem;color:#666;text-align:center">
+    🍒 ×2 · 🍋 ×3 · 🔔 ×5 · ⭐ ×10 · 💎 ×25 · 7️⃣ ×50 (match all 3)
+  </div>
+</div>
+
+<!-- ═══ BLACKJACK ═══ -->
+<div class="screen" id="bj-screen">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <button class="btn-sec btn-sm" onclick="leaveBJ()">← Back</button>
+    <div class="gem-badge">💎 <span id="bj-gem-count">0</span></div>
+  </div>
+  <h2 style="text-align:center">🃏 Blackjack</h2>
+  <div id="bj-table" style="display:none">
+    <div style="text-align:center;color:#999">Dealer (<span id="bj-d-score">?</span>)</div>
+    <div id="bj-dealer-cards" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:90px"></div>
+    <hr style="border-color:#222"/>
+    <div style="text-align:center;color:#999">You (<span id="bj-p-score">0</span>)</div>
+    <div id="bj-player-cards" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:90px"></div>
+    <div id="bj-result" style="text-align:center;font-size:1.1rem;min-height:1.4rem;color:#ffcc44"></div>
+    <div class="btn-row" id="bj-actions">
+      <button onclick="bjHit()">Hit</button>
+      <button class="btn-sec" onclick="bjStand()">Stand</button>
+    </div>
+  </div>
+  <div id="bj-deal-panel">
+    <div style="display:flex;gap:8px;align-items:center;justify-content:center">
+      <label class="field-label">Bet:</label>
+      <input id="bj-bet" type="number" value="10" min="5" max="1000" style="max-width:100px"/>
+      <button onclick="bjStart()" style="width:140px">Deal</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ POKER LOBBY ═══ -->
+<div class="screen" id="poker-lobby-screen">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <button class="btn-sec btn-sm" onclick="showScreen('casino-screen')">← Back</button>
+    <div class="gem-badge">💎 <span id="poker-gem-count">0</span></div>
+  </div>
+  <h2 style="text-align:center">♠️ Texas Hold'em</h2>
+  <div style="background:#1a1a1a;padding:12px;border-radius:10px;display:flex;flex-direction:column;gap:8px">
+    <div class="field-label">Create New Table</div>
+    <div style="display:flex;gap:6px">
+      <input id="pk-buyin" type="number" value="500" min="100" placeholder="Buy-in" style="flex:1"/>
+      <input id="pk-sb" type="number" value="10" min="1" placeholder="Small blind" style="flex:1"/>
+    </div>
+    <label style="font-size:.8rem;display:flex;align-items:center;gap:6px">
+      <input type="checkbox" id="pk-bots" checked/> Add 3 bots
+    </label>
+    <button onclick="pokerCreate()">Create Table</button>
+  </div>
+  <div style="background:#1a1a1a;padding:12px;border-radius:10px;display:flex;flex-direction:column;gap:8px">
+    <div class="field-label">Join Existing Table</div>
+    <div style="display:flex;gap:6px">
+      <input id="pk-join-code" type="text" placeholder="Code (5 letters)" maxlength="5" style="text-transform:uppercase;flex:1"/>
+      <button onclick="pokerJoinByCode()" style="width:100px">Join</button>
+    </div>
+  </div>
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div class="field-label">Open Tables</div>
+      <button class="btn-sec btn-sm" onclick="pokerRefresh()">Refresh</button>
+    </div>
+    <div id="poker-tables-list" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+  <p class="err" id="poker-err"></p>
+</div>
+
+<!-- ═══ POKER TABLE ═══ -->
+<div class="screen" id="poker-table-screen" style="max-width:780px">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <button class="btn-sec btn-sm" onclick="pokerLeave()">← Leave Table</button>
+    <div style="font-family:monospace;letter-spacing:2px" id="pk-code-disp">-----</div>
+    <div class="gem-badge">💎 <span id="pk-gem-count">0</span></div>
+  </div>
+  <div style="background:#0a3520;border:2px solid #1a5a3a;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:380px">
+    <div id="pk-players" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center"></div>
+    <div style="text-align:center;color:#ddd;font-size:.85rem" id="pk-pot-line">Pot: 0</div>
+    <div id="pk-community" style="display:flex;gap:6px;justify-content:center;min-height:80px;align-items:center"></div>
+    <div id="pk-message" style="text-align:center;color:#ffcc44;min-height:1.2rem;font-size:.85rem"></div>
+  </div>
+  <div id="pk-your-hand" style="display:flex;gap:6px;justify-content:center;min-height:90px"></div>
+  <div id="pk-actions" class="btn-row" style="display:none"></div>
+  <button id="pk-start-btn" onclick="pokerStartHand()" style="display:none">Start Hand</button>
+</div>
+
+<!-- ═══ FORGE DECK ═══ -->
+<div class="screen" id="forge-screen" style="max-width:780px">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <button class="btn-sec btn-sm" onclick="showScreen('menu-screen')">← Back</button>
+    <h2 style="margin:0">🔨 Forge Deck</h2>
+    <div class="gem-badge">💎 <span id="forge-gem-count">0</span></div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button onclick="showForgeTab('build')" id="forge-tab-build" class="btn-sec btn-sm" style="flex:1">Builder</button>
+    <button onclick="showForgeTab('mine')" id="forge-tab-mine" class="btn-sec btn-sm" style="flex:1">My Decks</button>
+    <button onclick="showForgeTab('market')" id="forge-tab-market" class="btn-sec btn-sm" style="flex:1">Marketplace</button>
+  </div>
+
+  <div id="forge-pane-build">
+    <input id="forge-name" placeholder="Deck name (e.g. Brutal Brigade)" maxlength="24" />
+    <p class="sub" style="margin-top:-4px">Click cards to add. Choose 6–30 cards. Cost scales with power.</p>
+    <div style="background:#1a1a1a;padding:8px;border-radius:8px">
+      <div class="field-label">Your selection (<span id="forge-count">0</span>):</div>
+      <div id="forge-picks" style="display:flex;flex-wrap:wrap;gap:4px;min-height:32px"></div>
+      <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">
+        <div>Price: <span id="forge-price" style="color:#ffcc44;font-weight:bold">0</span> 💎</div>
+        <button onclick="forgeSubmit()" id="forge-submit-btn">Forge</button>
+      </div>
+    </div>
+    <div class="field-label" style="margin-top:8px">Available Cards:</div>
+    <div id="forge-card-pool" style="display:flex;flex-wrap:wrap;gap:4px;max-height:340px;overflow-y:auto;background:#0a0a0a;padding:8px;border-radius:8px"></div>
+    <p class="err" id="forge-err"></p>
+  </div>
+
+  <div id="forge-pane-mine" style="display:none">
+    <div id="forge-mine-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <div id="forge-pane-market" style="display:none">
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn-sec btn-sm" onclick="forgeRefreshMarket()">Refresh</button>
+    </div>
+    <div id="forge-market-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
+
+<!-- ═══ GIFT GEMS OVERLAY ═══ -->
+<div class="overlay" id="gift-overlay">
+  <h2>🎁 Gift Gems</h2>
+  <p class="sub">Send gems to another player by their 7-character Player ID</p>
+  <input id="gift-pid" type="text" placeholder="Player ID" maxlength="7" style="text-transform:uppercase;font-family:monospace;letter-spacing:2px;max-width:240px"/>
+  <input id="gift-amount" type="number" placeholder="Amount" min="1" style="max-width:240px"/>
+  <div class="btn-row" style="max-width:280px;width:100%">
+    <button onclick="sendGift()">Send</button>
+    <button class="btn-sec" onclick="document.getElementById('gift-overlay').classList.remove('show')">Cancel</button>
+  </div>
+  <p class="err" id="gift-err"></p>
 </div>
 
 <!-- ═══ ADMIN CODE PROMPT ═══ -->
@@ -1232,6 +1418,337 @@ socket.on('admin_set_ok', d => {
   setTimeout(() => { document.getElementById('admin-err').textContent = ''; }, 3000);
   socket.emit('admin_login', { code: _adminCode });
 });
+
+// ═══════════════════════════════════════════════════════
+//  CASINO + FORGE + GIFT
+// ═══════════════════════════════════════════════════════
+function _syncGemDisplays() {
+  ['casino-gem-count','slots-gem-count','bj-gem-count','poker-gem-count',
+   'pk-gem-count','forge-gem-count'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.textContent = session.gems;
+  });
+}
+socket.on('casino_error', d => { alert(d.msg); });
+
+// ── CASINO LOBBY ──
+function openCasino() {
+  if (!session.username) { alert('Log in to play casino games.'); return; }
+  _syncGemDisplays();
+  showScreen('casino-screen');
+}
+
+// ── SLOTS ──
+function openSlots() { _syncGemDisplays(); showScreen('slots-screen'); }
+function doSlotSpin() {
+  const bet = parseInt(document.getElementById('slot-bet').value) || 10;
+  socket.emit('slots_spin', { username: session.username, bet });
+}
+socket.on('slots_result', d => {
+  ['slot-r0','slot-r1','slot-r2'].forEach((id,i) => document.getElementById(id).textContent = d.reels[i]);
+  session.gems = d.gems; _syncGemDisplays();
+  document.getElementById('menu-gem-count').textContent = d.gems;
+  const r = document.getElementById('slot-result');
+  if (d.net > 0) r.textContent = `🎉 +${d.net} gems!`;
+  else if (d.net === 0) r.textContent = `↔️ Push (refunded)`;
+  else r.textContent = `💸 ${d.net} gems`;
+});
+
+// ── BLACKJACK ──
+function openBJ() {
+  _syncGemDisplays();
+  document.getElementById('bj-table').style.display = 'none';
+  document.getElementById('bj-deal-panel').style.display = 'block';
+  showScreen('bj-screen');
+}
+function leaveBJ() { showScreen('casino-screen'); }
+function bjCard(c) {
+  const div = document.createElement('div');
+  const red = c.s === '♥' || c.s === '♦';
+  div.style.cssText = `width:54px;height:78px;background:#fff;border-radius:6px;display:flex;flex-direction:column;justify-content:space-between;padding:4px;color:${red?'#c00':'#000'};font-weight:bold`;
+  div.innerHTML = `<div>${c.r}</div><div style="text-align:center;font-size:1.4rem">${c.s}</div><div style="text-align:right">${c.r}</div>`;
+  if (c.r === '?') div.innerHTML = '<div style="margin:auto;font-size:2rem;color:#666">🂠</div>';
+  return div;
+}
+function bjStart() {
+  const bet = parseInt(document.getElementById('bj-bet').value) || 10;
+  socket.emit('bj_start', { username: session.username, bet });
+}
+function bjHit()   { socket.emit('bj_hit', {}); }
+function bjStand() { socket.emit('bj_stand', {}); }
+socket.on('bj_state', d => {
+  document.getElementById('bj-table').style.display = 'block';
+  document.getElementById('bj-deal-panel').style.display = d.done ? 'block' : 'none';
+  const pe = document.getElementById('bj-player-cards'); pe.innerHTML = '';
+  d.player.forEach(c => pe.appendChild(bjCard(c)));
+  const de = document.getElementById('bj-dealer-cards'); de.innerHTML = '';
+  d.dealer.forEach(c => de.appendChild(bjCard(c)));
+  document.getElementById('bj-p-score').textContent = d.p_score;
+  document.getElementById('bj-d-score').textContent = d.done ? d.d_score : '?';
+  document.getElementById('bj-actions').style.display = d.done ? 'none' : 'flex';
+  const r = document.getElementById('bj-result');
+  if (d.done) {
+    const msg = {win:'🎉 You win!', lose:'💀 You lose.', push:'↔️ Push.'}[d.result] || '';
+    r.textContent = msg + (d.payout ? ` +${d.payout} gems` : '');
+    session.gems = d.gems; _syncGemDisplays();
+    document.getElementById('menu-gem-count').textContent = d.gems;
+  } else r.textContent = '';
+});
+
+// ── POKER ──
+let pkCode = null, pkYourIdx = null, pkLastState = null;
+function openPokerLobby() {
+  _syncGemDisplays();
+  socket.emit('poker_list', {});
+  showScreen('poker-lobby-screen');
+}
+function pokerRefresh() { socket.emit('poker_list', {}); }
+socket.on('poker_list', d => {
+  const list = document.getElementById('poker-tables-list');
+  list.innerHTML = '';
+  if (!d.tables.length) { list.innerHTML = '<div style="color:#666;font-size:.8rem;text-align:center;padding:10px">No open tables. Create one!</div>'; return; }
+  d.tables.forEach(t => {
+    const row = document.createElement('div');
+    row.style.cssText = 'background:#1a1a1a;padding:8px 12px;border-radius:8px;display:flex;justify-content:space-between;align-items:center';
+    row.innerHTML = `<div><span style="font-family:monospace;letter-spacing:2px">${t.code}</span> · ${t.players}p · ${t.phase} · BB ${t.big_blind}</div>`;
+    const btn = document.createElement('button'); btn.className='btn-sm'; btn.textContent='Join';
+    btn.onclick = () => { document.getElementById('pk-join-code').value = t.code; pokerJoinByCode(); };
+    row.appendChild(btn); list.appendChild(row);
+  });
+});
+function pokerCreate() {
+  const buyin = parseInt(document.getElementById('pk-buyin').value) || 500;
+  const sb = parseInt(document.getElementById('pk-sb').value) || 10;
+  const add_bots = document.getElementById('pk-bots').checked;
+  if (session.gems < buyin) { document.getElementById('poker-err').textContent='Not enough gems for buy-in.'; return; }
+  socket.emit('poker_create', { username: session.username, name: session.username, buyin, small_blind: sb, add_bots });
+}
+function pokerJoinByCode() {
+  const code = document.getElementById('pk-join-code').value.trim().toUpperCase();
+  if (!code) { document.getElementById('poker-err').textContent='Enter a code.'; return; }
+  socket.emit('poker_join', { username: session.username, name: session.username, code });
+}
+socket.on('poker_joined', d => {
+  pkCode = d.code; pkYourIdx = d.your_idx;
+  document.getElementById('pk-code-disp').textContent = d.code;
+  showScreen('poker-table-screen');
+});
+function pokerLeave() {
+  if (pkCode) socket.emit('poker_leave', { code: pkCode });
+  pkCode = null; pkYourIdx = null;
+  showScreen('poker-lobby-screen');
+  socket.emit('poker_list', {});
+}
+function pokerStartHand() { socket.emit('poker_start_hand', { code: pkCode }); }
+function pokerAction(action, amount) {
+  socket.emit('poker_action', { code: pkCode, action, amount: amount || 0 });
+}
+function pkCardEl(c) {
+  const div = document.createElement('div');
+  if (c.r === '?') {
+    div.style.cssText = 'width:48px;height:68px;background:#222;border:1px solid #555;border-radius:5px;display:flex;align-items:center;justify-content:center;color:#666;font-size:1.4rem';
+    div.textContent = '🂠'; return div;
+  }
+  const red = c[1]==='♥'||c[1]==='♦'||c.s==='♥'||c.s==='♦';
+  const r = c.r || c[0], s = c.s || c[1];
+  div.style.cssText = `width:48px;height:68px;background:#fff;border-radius:5px;display:flex;flex-direction:column;justify-content:space-between;padding:3px;color:${red?'#c00':'#000'};font-weight:bold;font-size:.85rem`;
+  div.innerHTML = `<div>${r}</div><div style="text-align:center;font-size:1.2rem">${s}</div>`;
+  return div;
+}
+socket.on('poker_state', s => {
+  pkLastState = s;
+  // Players
+  const pe = document.getElementById('pk-players'); pe.innerHTML = '';
+  s.players.forEach((p,i) => {
+    const div = document.createElement('div');
+    const isYou = (i === pkYourIdx);
+    const isTurn = (i === s.turn_idx && s.phase !== 'showdown' && s.phase !== 'waiting');
+    div.style.cssText = `background:${p.folded?'#1a1a1a':'#0a4a2a'};border:2px solid ${isTurn?'#ffcc44':(isYou?'#3a8aff':'#155a35')};border-radius:8px;padding:6px 10px;min-width:110px;text-align:center;${p.folded?'opacity:.5':''}`;
+    div.innerHTML = `<div style="font-size:.8rem;font-weight:bold">${p.name}${p.is_bot?' 🤖':''}${i===s.dealer_idx?' Ⓓ':''}</div>
+      <div style="font-size:.7rem;color:#ccc">💎 ${p.chips}${p.all_in?' (ALL-IN)':''}</div>
+      ${p.bet?`<div style="font-size:.7rem;color:#ffcc44">Bet: ${p.bet}</div>`:''}`;
+    pe.appendChild(div);
+  });
+  // Community
+  const ce = document.getElementById('pk-community'); ce.innerHTML = '';
+  s.community.forEach(c => ce.appendChild(pkCardEl(c)));
+  if (!s.community.length) ce.innerHTML = '<div style="color:#888;font-size:.8rem">— flop · turn · river will appear here —</div>';
+  // Pot + message
+  document.getElementById('pk-pot-line').textContent = `Pot: ${s.pot} 💎  |  Phase: ${s.phase}`;
+  let msg = s.message || '';
+  if (s.showdown_info) {
+    msg = s.showdown_info.winners.map(w => `${w.name} won ${w.won}${w.hand?' ('+w.hand+')':''}`).join(' + ');
+  }
+  document.getElementById('pk-message').textContent = msg;
+  // Your hand
+  const yh = document.getElementById('pk-your-hand'); yh.innerHTML = '';
+  if (pkYourIdx !== null && s.players[pkYourIdx]) {
+    s.players[pkYourIdx].hand.forEach(c => yh.appendChild(pkCardEl(c)));
+  }
+  // Actions
+  const acts = document.getElementById('pk-actions'); acts.innerHTML = '';
+  const startBtn = document.getElementById('pk-start-btn');
+  const isYourTurn = (s.turn_idx === pkYourIdx && s.phase !== 'waiting' && s.phase !== 'showdown');
+  acts.style.display = isYourTurn ? 'flex' : 'none';
+  startBtn.style.display = (s.phase === 'waiting' || s.phase === 'showdown') ? 'block' : 'none';
+  if (isYourTurn) {
+    const you = s.players[pkYourIdx];
+    const toCall = s.current_bet - you.bet;
+    if (toCall === 0) {
+      const b1 = document.createElement('button'); b1.textContent='Check'; b1.onclick=()=>pokerAction('check'); acts.appendChild(b1);
+      const b2 = document.createElement('button'); b2.textContent=`Bet ${s.big_blind*2}`; b2.onclick=()=>pokerAction('raise', s.big_blind*2); acts.appendChild(b2);
+    } else {
+      const b1 = document.createElement('button'); b1.className='btn-sec'; b1.textContent='Fold'; b1.onclick=()=>pokerAction('fold'); acts.appendChild(b1);
+      const b2 = document.createElement('button'); b2.textContent=`Call ${toCall}`; b2.onclick=()=>pokerAction('call'); acts.appendChild(b2);
+      const b3 = document.createElement('button'); b3.textContent=`Raise to ${s.current_bet + s.big_blind*2}`; b3.onclick=()=>pokerAction('raise', s.current_bet + s.big_blind*2); acts.appendChild(b3);
+    }
+    const b4 = document.createElement('button'); b4.className='btn-sec'; b4.textContent='All-In'; b4.onclick=()=>pokerAction('allin'); acts.appendChild(b4);
+  }
+});
+
+// ── GIFT GEMS ──
+function openGiftOverlay() {
+  if (!session.username) { alert('Log in to gift gems.'); return; }
+  document.getElementById('gift-err').textContent = '';
+  document.getElementById('gift-pid').value = '';
+  document.getElementById('gift-amount').value = '';
+  document.getElementById('gift-overlay').classList.add('show');
+}
+function sendGift() {
+  const pid = document.getElementById('gift-pid').value.trim().toUpperCase();
+  const amount = parseInt(document.getElementById('gift-amount').value);
+  if (!pid || !amount || amount < 1) { document.getElementById('gift-err').textContent='Enter ID and amount.'; return; }
+  socket.emit('send_gems', { username: session.username, target_player_id: pid, amount });
+}
+socket.on('gift_ok', d => {
+  document.getElementById('gift-overlay').classList.remove('show');
+  session.gems = d.gems;
+  document.getElementById('menu-gem-count').textContent = d.gems;
+  _syncGemDisplays();
+  alert(`✓ Sent ${d.amount} gems to ${d.to}.`);
+});
+
+// ── FORGE DECK ──
+let _allCardsCache = null;
+let _forgeSelection = [];
+function openForge() {
+  if (!session.username) { alert('Log in to forge decks.'); return; }
+  _syncGemDisplays();
+  if (!_allCardsCache) socket.emit('list_all_cards', {});
+  else renderForgePool();
+  _forgeSelection = []; renderForgePicks();
+  showForgeTab('build');
+  showScreen('forge-screen');
+}
+socket.on('all_cards', d => { _allCardsCache = d.cards; renderForgePool(); });
+function showForgeTab(tab) {
+  ['build','mine','market'].forEach(t => {
+    document.getElementById('forge-pane-'+t).style.display = (t===tab)?'block':'none';
+    document.getElementById('forge-tab-'+t).style.background = (t===tab)?'#ff3333':'#222';
+  });
+  if (tab === 'mine') renderMineList();
+  if (tab === 'market') forgeRefreshMarket();
+}
+function renderForgePool() {
+  const el = document.getElementById('forge-card-pool'); el.innerHTML = '';
+  (_allCardsCache || []).forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'btn-sec btn-sm';
+    b.style.cssText = 'padding:5px 8px;font-size:.7rem;text-align:left';
+    b.innerHTML = `<b>${c.name}</b><br><span style="color:#888">⚔${c.atk} 🛡${c.def}${c.specials.length?' ✦':''}</span>`;
+    b.title = c.specials.map(s => `${s.name}: ${s.desc}`).join('\n') || 'Basic card';
+    b.onclick = () => { _forgeSelection.push(c.name); renderForgePicks(); };
+    el.appendChild(b);
+  });
+}
+function renderForgePicks() {
+  const el = document.getElementById('forge-picks'); el.innerHTML = '';
+  _forgeSelection.forEach((name, i) => {
+    const p = document.createElement('span');
+    p.style.cssText = 'background:#2a2a2a;padding:3px 6px;border-radius:4px;font-size:.7rem;cursor:pointer';
+    p.textContent = name + ' ✕';
+    p.onclick = () => { _forgeSelection.splice(i,1); renderForgePicks(); };
+    el.appendChild(p);
+  });
+  document.getElementById('forge-count').textContent = _forgeSelection.length;
+  if (_forgeSelection.length >= 6) socket.emit('forge_quote', { cards: _forgeSelection });
+  else document.getElementById('forge-price').textContent = '—';
+}
+socket.on('forge_quote_result', d => {
+  document.getElementById('forge-price').textContent = d.valid ? d.price : '—';
+});
+function forgeSubmit() {
+  const name = document.getElementById('forge-name').value.trim();
+  if (!name) { document.getElementById('forge-err').textContent='Enter a deck name.'; return; }
+  socket.emit('forge_deck', { username: session.username, name, cards: _forgeSelection });
+}
+socket.on('forge_ok', d => {
+  session.gems = d.gems; session.owned_decks = d.owned_decks; session.custom_decks = d.custom_decks;
+  document.getElementById('menu-gem-count').textContent = d.gems;
+  _syncGemDisplays();
+  _forgeSelection = []; renderForgePicks();
+  document.getElementById('forge-name').value = '';
+  document.getElementById('forge-err').textContent = '';
+  renderMineList();
+  // refresh deck selectors so custom decks are usable
+  if (document.getElementById('lobby-deck-sel')) buildDeckSelector('lobby-deck-sel','lobby');
+  if (document.getElementById('bot-deck-sel')) buildDeckSelector('bot-deck-sel','bot');
+  alert('✓ Deck saved!');
+});
+function renderMineList() {
+  const el = document.getElementById('forge-mine-list'); el.innerHTML = '';
+  const mine = session.custom_decks || [];
+  if (!mine.length) { el.innerHTML = '<p class="sub">No custom decks yet. Build one in the Builder tab!</p>'; return; }
+  mine.forEach(d => {
+    const row = document.createElement('div');
+    row.style.cssText = 'background:#1a1a1a;padding:10px;border-radius:8px';
+    row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+      <div><b>${d.name}</b> <span style="color:#888;font-size:.7rem">(${d.cards.length} cards · forged for ${d.price}💎)</span></div>
+      <div style="display:flex;gap:4px;align-items:center">
+        <input type="number" id="sp-${d.id}" value="${d.sale_price||d.price}" style="width:80px;font-size:.75rem" min="50"/>
+        <button class="btn-sm ${d.for_sale?'':'btn-sec'}" onclick="toggleSale('${d.id}')">${d.for_sale?'Unlist':'List'}</button>
+      </div></div>
+      <div style="font-size:.65rem;color:#666;margin-top:4px">${d.cards.join(' · ')}</div>`;
+    el.appendChild(row);
+  });
+}
+function toggleSale(deckId) {
+  const sp = parseInt(document.getElementById('sp-'+deckId).value) || 200;
+  socket.emit('toggle_sale', { username: session.username, deck_id: deckId, sale_price: sp });
+}
+function forgeRefreshMarket() { socket.emit('list_market', {}); }
+socket.on('market_list', d => {
+  const el = document.getElementById('forge-market-list'); el.innerHTML = '';
+  if (!d.listings.length) { el.innerHTML = '<p class="sub">No decks for sale right now.</p>'; return; }
+  d.listings.forEach(l => {
+    const row = document.createElement('div');
+    row.style.cssText = 'background:#1a1a1a;padding:10px;border-radius:8px';
+    row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+      <div><b>${l.name}</b> <span style="color:#888;font-size:.7rem">by ${l.seller} · ${l.cards.length} cards</span></div>
+      <button class="btn-sm" onclick="buyMarketDeck('${l.deck_id}')">Buy ${l.price}💎</button>
+      </div>
+      <div style="font-size:.65rem;color:#666;margin-top:4px">${l.cards.join(' · ')}</div>`;
+    el.appendChild(row);
+  });
+});
+function buyMarketDeck(deckId) {
+  if (!confirm('Buy this deck?')) return;
+  socket.emit('buy_custom_deck', { username: session.username, deck_id: deckId });
+}
+
+// Extend deck selector to include owned custom decks
+const _origBuildDeckSelector = buildDeckSelector;
+buildDeckSelector = function(containerId, key) {
+  _origBuildDeckSelector(containerId, key);
+  const el = document.getElementById(containerId);
+  (session.custom_decks || []).forEach(d => {
+    if (!(session.owned_decks||[]).includes(d.id)) return;
+    const pill = document.createElement('button');
+    pill.className = 'deck-pill' + (deckSelections[key]===d.id?' active':'');
+    pill.innerHTML = `🔨 ${d.name}`;
+    pill.onclick = () => { deckSelections[key] = d.id; buildDeckSelector(containerId, key); };
+    el.appendChild(pill);
+  });
+};
 </script>
 </body>
 </html>
