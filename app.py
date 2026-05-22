@@ -796,6 +796,16 @@ def index():
 def deck_info():
     return {'decks': DECK_INFO}
 
+# Serve the service worker from site root so its scope covers everything.
+@app.route('/sw.js')
+def service_worker():
+    from flask import send_from_directory, make_response
+    resp = make_response(send_from_directory('static', 'sw.js'))
+    resp.headers['Content-Type'] = 'application/javascript'
+    resp.headers['Service-Worker-Allowed'] = '/'
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
 # ═══════════════════════════════════════════════════════════════
 #  SOCKET EVENTS
 # ═══════════════════════════════════════════════════════════════
