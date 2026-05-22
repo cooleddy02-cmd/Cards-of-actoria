@@ -1,24 +1,18 @@
 {
   "cy": {
     "pw_hash": "a320480f534776bddb5cdb54b1e93d210a3c7d199e80a23c1b2178497b184c76",
-    "gems": 189999925,
+    "gems": 189999850,
     "owned_decks": [
       "basic",
       "brawler",
       "guardian",
       "mystic",
-      "chaos"
+      "chaos",
+      "storm",
+      "dream",
+      "titan"
     ],
     "wins": 0,
-    "losses": 0
-  },
-  "Clock": {
-    "pw_hash": "93f39701aba9c7be7860caf1aec7adc453dae61a869bee574920e870e932f2d5",
-    "gems": 1000000000000000000  ,
-    "owned_decks": [
-      "basic"
-    ],
-    "wins": 0,
-    "losses": 0
-  }
-}
+    "losses": 0,
+    "player_id": "G3YRHHM"
+

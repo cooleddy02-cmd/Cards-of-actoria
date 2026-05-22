@@ -373,6 +373,11 @@ def _exec_attack(room, room_code, pi, ai, ti):
         if actual == 0: msgs.append(f"{tgt['name']} blocked!")
         else: msgs.append(f"{atk['name']} hits {tgt['name']} for {actual}!")
 
+    # Duraza double strike — hits twice with full ATK each time
+    if _has(atk, 'duraza_dual') and not _has(atk, 'bolt_pierce'):
+        second = apply_damage(tgt, dmg)
+        if second > 0: msgs.append(f"⚡ Double Strike! +{second}!")
+
     # Freeze (Clock)
     if _has(atk, 'freeze') and not tgt.get('frozen'):
         tgt['frozen'] = True; tgt['freeze_by'] = pi; tgt['freeze_turns'] = 1
