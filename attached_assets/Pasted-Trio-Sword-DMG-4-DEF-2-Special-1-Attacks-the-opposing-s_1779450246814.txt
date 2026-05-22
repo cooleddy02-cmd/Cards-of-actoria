@@ -1,0 +1,84 @@
+Trio-Sword
+DMG: 4
+DEF: 2
+Special: 
+1 - Attacks the opposing side, attacking three times in one attack action (left, middle, right), each counted as a separate hit [This attack does not count as a AoE attack]. 
+2 - This card cannot be drawn (normally) into your hand. This card can only be summoned by sacrificing the Sword and 2 other cards (can’t sacrifice from enemies cards, this card does not need to be in your hand to be summoned)
+
+The Star
+DMG: 0
+DEF: 3
+Special: 
+1 - This card cannot be drawn (normally) into your hand. This card can only be summoned by sacrificing the sun and 2 other cards (can’t sacrifice from enemies cards).
+2 - Every enemy card in the same column with this card takes 2 dmg every turn [This cannot deal damage to players].
+3 - Cannot take damage or be destroyed for its first 2 turns on the field 
+4 - While this card is on the field the enemy cards AoE attacks don’t work
+5 - This card cannot be sacrificed
+6 - Can’t be revived
+
+
+Atlas - Black hole holder
+DMG: 0
+DEF: 10
+Special: 
+1 - This card cannot be drawn (normally) into your hand.
+2 - Cannot take damage or be destroyed for its first 2 turns on the field 
+3 - This card can be destroyed to make one of the enemies cards go to the hand.
+4 - Atlas Pull: Enemy cards can’t attack any other cards but this card, cards from other columns can attack this card
+5 - When this card is destroyed owner takes 2 damage
+6 - Can’t be revived
+
+Atlas - Endless Greed
+DMG: 3
+DEF: 3
+Special: 
+1 - This card cannot be drawn (normally) into your hand.
+2 - Every time it's your turn and this card is on the field draw +1 card [basically you draw 2 cards instead of 1] (does not stack with more Greed cards).
+3 - When this card is destroyed owner takes 3 damage
+4 - You can force once per ‘two (self) turns’ the opposing side to not be able to draw a card that turn. [basically at your third (self) turn]
+
+
+Ace:
+DMG: 5
+DEF: 5
+Special: This card can only be summoned by sacrificing 2 other cards on the field can’t sacrifice from the enemies field
+
+
+Lich
+DMG: 4
+DEF: 3
+Special: 
+1 - This card can only be summoned by sacrificing 3 other cards on the field can’t sacrifice from the enemies field
+2 - Gains half the damage dealt from this card as def.
+3 - When this card is destroyed all ally cards gain +1 Dmg +1 Def
+
+
+Omega
+DMG: 4
+DEF: 10
+Special: 
+1 - This card can only be summoned by sacrificing 3 other cards on the field can’t sacrifice from the enemies field.
+2 - At the end of every turn while this card is on the field it deals 1 damage to the opponent
+3 - Dmg can’t go below base amount
+
+Black Hole
+DMG: 0
+DEF: 15
+Special: 
+1 - This card can only be summoned by sacrificing 3 other cards on the field can’t sacrifice from the enemies field.
+2 - Pull: Enemy cards can’t attack any other cards but this card, cards from other columns can attack this card
+3 - Atlast summon: you can summon the Atlas card but losing 4 hp (This effect can only be used once per turn)
+
+
+Angel of end
+DMG: 0
+DEF: 15
+Block: 4
+Special: 
+1 - This card cannot be drawn (normally) into your hand.
+2 - This card can only be summoned by sacrificing 2 evo cards from the field and 2 other evo or normal cards from the hand or field.
+3 - This card can’t be defused.
+4 - Instant kill/destory effects can only destory this card if all of its blocks are gone
+5 - This cards dmg is as much as the card with the most dmg on the field
+6 - When this card is destroyed it is banished.
+7 - EMP, removes all special effects from all other cards for 4 turns can only be activated if this card is 10 def or below and if the player is below half health the player can choose to activate this or not
