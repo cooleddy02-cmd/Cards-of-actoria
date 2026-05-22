@@ -930,9 +930,21 @@ function installApp() {
   const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
   const isAndroid = /Android/i.test(ua);
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  // Brave detection (works on desktop + Android Brave)
+  const isBrave = (navigator.brave && typeof navigator.brave.isBrave === 'function');
   let html;
   if (isStandalone) {
     html = '<p>✅ You\'re already running Cards of Factoria as an installed app!</p>';
+  } else if (isBrave) {
+    html = `
+      <p><b>Install on Brave:</b></p>
+      <p style="margin-top:6px;font-size:.85rem;color:#aaa">Brave hides the one-tap install prompt by default — use the menu instead:</p>
+      <ol style="padding-left:20px;margin-top:8px">
+        <li>Click the <b>⋮</b> menu (top-right of Brave)</li>
+        <li>Click <b>Install Cards of Factoria…</b> ${isAndroid ? '(or <b>Add to Home screen</b>)' : ''}</li>
+        <li>Confirm — the app opens in its own window with a shortcut</li>
+      </ol>
+      <p style="margin-top:10px;font-size:.8rem;color:#aaa">If you don't see "Install…", lower <b>Brave Shields</b> for this site (click the lion icon → toggle off) and refresh.</p>`;
   } else if (isIOS) {
     html = `
       <p><b>Install on iPhone/iPad (Safari):</b></p>
