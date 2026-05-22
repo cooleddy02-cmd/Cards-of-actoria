@@ -105,9 +105,8 @@ def main():
     window.events.loaded += _on_loaded
 
     try:
-        # debug=True enables right-click → Inspect for diagnostics.
         # Let pywebview auto-detect the GUI backend (WebView2 on Win11).
-        webview.start(debug=True, func=_on_started)
+        webview.start(debug=False, func=_on_started)
     except Exception as e:
         if sys.platform.startswith("win"):
             ctypes.windll.user32.MessageBoxW(
