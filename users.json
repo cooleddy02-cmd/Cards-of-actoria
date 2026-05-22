@@ -11,5 +11,14 @@
     ],
     "wins": 0,
     "losses": 0
+  },
+  "Clock": {
+    "pw_hash": "93f39701aba9c7be7860caf1aec7adc453dae61a869bee574920e870e932f2d5",
+    "gems": 100000000000wi,
+    "owned_decks": [
+      "basic"
+    ],
+    "wins": 0,
+    "losses": 0
   }
 }
