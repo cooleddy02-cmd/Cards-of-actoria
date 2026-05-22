@@ -913,63 +913,144 @@ window.addEventListener('beforeinstallprompt', e => {
   const btn = document.getElementById('install-app-btn');
   if (btn) btn.style.display = 'block';
 });
-function installApp() {
+// Detect browser + OS for tailored install instructions
+async function detectPlatform() {
+  const ua = navigator.userAgent;
+  let os = 'Unknown';
+  if (/Windows/i.test(ua)) os = 'Windows';
+  else if (/Mac OS X|Macintosh/i.test(ua) && !/iPad|iPhone/i.test(ua)) os = 'macOS';
+  else if (/Linux/i.test(ua) && !/Android/i.test(ua)) os = 'Linux';
+  else if (/Android/i.test(ua)) os = 'Android';
+  else if (/iPad|iPhone|iPod/i.test(ua)) os = 'iOS';
+  let browser = 'Unknown';
+  // Order matters — check Brave/Edge/Opera/Samsung BEFORE Chrome (they all include "Chrome" in UA)
+  let isBrave = false;
+  try { isBrave = !!(navigator.brave && await navigator.brave.isBrave()); } catch(e){}
+  if (isBrave) browser = 'Brave';
+  else if (/Edg\//.test(ua)) browser = 'Edge';
+  else if (/OPR\/|Opera/.test(ua)) browser = 'Opera';
+  else if (/SamsungBrowser/.test(ua)) browser = 'Samsung Internet';
+  else if (/Firefox\//.test(ua)) browser = 'Firefox';
+  else if (/Chrome\//.test(ua) && /Safari\//.test(ua)) browser = 'Chrome';
+  else if (/Safari\//.test(ua) && !/Chrome\//.test(ua)) browser = 'Safari';
+  return { os, browser };
+}
+
+const PLATFORM_ICONS = {
+  Brave:'🦁', Edge:'🌊', Chrome:'🌐', Firefox:'🦊', Safari:'🧭',
+  Opera:'🅾️', 'Samsung Internet':'📱', Unknown:'❓',
+  Windows:'🪟', macOS:'🍎', Linux:'🐧', Android:'🤖', iOS:'📱'
+};
+
+function buildInstallSteps(browser, os) {
+  // Mobile flows
+  if (os === 'iOS') {
+    if (browser === 'Safari') {
+      return [
+        'Tap the <b>Share</b> button at the bottom of Safari (the square with the up arrow ⬆️)',
+        'Scroll down the share sheet and tap <b>Add to Home Screen</b>',
+        'Tap <b>Add</b> in the top-right — the app will appear on your home screen'
+      ];
+    }
+    return [
+      '<b>iOS only supports install from Safari.</b> Tap the address bar → <b>Open in Safari</b>',
+      'In Safari, tap the <b>Share</b> button ⬆️ at the bottom',
+      'Tap <b>Add to Home Screen</b> → <b>Add</b>'
+    ];
+  }
+  if (os === 'Android') {
+    if (browser === 'Firefox') {
+      return [
+        'Tap the <b>⋮</b> menu (three dots, top-right of Firefox)',
+        'Tap <b>Install</b> or <b>Add to Home screen</b>',
+        'Confirm — the icon will appear on your home screen'
+      ];
+    }
+    if (browser === 'Samsung Internet') {
+      return [
+        'Tap the <b>≡</b> menu (three lines, bottom-right)',
+        'Tap <b>Add page to</b> → <b>Home screen</b>',
+        'Tap <b>Add</b> to confirm'
+      ];
+    }
+    // Chrome/Brave/Edge/Opera on Android
+    return [
+      `Tap the <b>⋮</b> menu (three vertical dots) in the <b>top-right corner</b> of ${browser}`,
+      `Tap <b>Install app</b>${browser==='Brave'?' (or <b>Add to Home screen</b>)':''}`,
+      'Confirm — Cards of Factoria will appear on your home screen'
+    ];
+  }
+  // Desktop flows
+  if (browser === 'Chrome' || browser === 'Edge') {
+    return [
+      `Look at the <b>right side of the address bar</b> — you should see a small install icon (looks like a monitor with a down-arrow ⊕)`,
+      'Click it, then click <b>Install</b> in the popup',
+      `Or use the menu: click <b>⋮</b> (top-right) → <b>${browser==='Edge'?'Apps → Install this site as an app':'Cast, save, and share → Install Cards of Factoria…'}</b>`,
+      'The app opens in its own window with a desktop shortcut'
+    ];
+  }
+  if (browser === 'Brave') {
+    return [
+      'Click the <b>☰</b> menu (three horizontal lines, <b>top-right corner</b> of Brave)',
+      'Click <b>Install Cards of Factoria…</b> near the bottom of the menu',
+      'Click <b>Install</b> in the confirmation popup',
+      '<b>Don\'t see "Install…"?</b> Click the <b>🦁 lion icon</b> in the address bar → toggle <b>Shields</b> OFF for this site → refresh the page'
+    ];
+  }
+  if (browser === 'Opera') {
+    return [
+      'Click the <b>⊕</b> install icon in the address bar (right side)',
+      'Click <b>Install</b> — or use the Opera menu (top-left) → <b>Install Cards of Factoria…</b>',
+      'The app opens in its own window'
+    ];
+  }
+  if (browser === 'Firefox') {
+    return [
+      '<b>Firefox desktop doesn\'t support installing web apps.</b>',
+      'To install, please open this page in <b>Chrome, Edge, Brave, or Opera</b> instead.',
+      'On mobile (Android Firefox), use ⋮ → Install / Add to Home screen.'
+    ];
+  }
+  if (browser === 'Safari') {
+    return [
+      '<b>Safari on macOS supports install since macOS Sonoma (14):</b>',
+      'Click <b>File</b> in the menu bar → <b>Add to Dock…</b>',
+      'Click <b>Add</b> — the app appears in your Dock and Launchpad',
+      'Older macOS: use Chrome, Edge or Brave instead.'
+    ];
+  }
+  return [
+    'Your browser may not support installing web apps.',
+    'Try opening this page in <b>Chrome, Edge, or Brave</b> on desktop, or <b>Safari</b> on iPhone/iPad.'
+  ];
+}
+
+async function installApp() {
   if (_deferredInstall) {
     _deferredInstall.prompt();
     _deferredInstall.userChoice.finally(() => { _deferredInstall = null; });
     return;
   }
-  // If we're trapped in an iframe (e.g. Replit preview), the browser won't
-  // fire beforeinstallprompt. Pop the live URL out so the user can install.
+  // If we're trapped in an iframe (Replit preview), pop the live URL out
   if (window.top !== window.self) {
     window.open(window.location.href, '_blank');
     return;
   }
-  // Build platform-specific instructions
-  const ua = navigator.userAgent;
-  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
-  const isAndroid = /Android/i.test(ua);
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  // Brave detection (works on desktop + Android Brave)
-  const isBrave = (navigator.brave && typeof navigator.brave.isBrave === 'function');
-  let html;
+  const { os, browser } = await detectPlatform();
+  const bIcon = PLATFORM_ICONS[browser] || '🌐';
+  const oIcon = PLATFORM_ICONS[os] || '💻';
+  let html = `
+    <div style="background:#0d0d0d;border:1px solid #333;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:.85rem">
+      <div style="color:#888;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Detected device</div>
+      <div style="color:#d4af37;font-weight:600">${bIcon} ${browser} <span style="color:#888">on</span> ${oIcon} ${os}</div>
+    </div>`;
   if (isStandalone) {
-    html = '<p>✅ You\'re already running Cards of Factoria as an installed app!</p>';
-  } else if (isBrave) {
-    html = `
-      <p><b>Install on Brave:</b></p>
-      <p style="margin-top:6px;font-size:.85rem;color:#aaa">Brave hides the one-tap install prompt by default — use the menu instead:</p>
-      <ol style="padding-left:20px;margin-top:8px">
-        <li>Click the <b>⋮</b> menu (top-right of Brave)</li>
-        <li>Click <b>Install Cards of Factoria…</b> ${isAndroid ? '(or <b>Add to Home screen</b>)' : ''}</li>
-        <li>Confirm — the app opens in its own window with a shortcut</li>
-      </ol>
-      <p style="margin-top:10px;font-size:.8rem;color:#aaa">If you don't see "Install…", lower <b>Brave Shields</b> for this site (click the lion icon → toggle off) and refresh.</p>`;
-  } else if (isIOS) {
-    html = `
-      <p><b>Install on iPhone/iPad (Safari):</b></p>
-      <ol style="padding-left:20px;margin-top:8px">
-        <li>Tap the <b>Share</b> icon ⬆️ at the bottom of Safari</li>
-        <li>Scroll down and tap <b>Add to Home Screen</b></li>
-        <li>Tap <b>Add</b> — Cards of Factoria will appear on your home screen</li>
-      </ol>`;
-  } else if (isAndroid) {
-    html = `
-      <p><b>Install on Android (Chrome):</b></p>
-      <ol style="padding-left:20px;margin-top:8px">
-        <li>Tap the <b>⋮</b> menu in the top-right of Chrome</li>
-        <li>Tap <b>Install app</b> or <b>Add to Home screen</b></li>
-        <li>Confirm — the icon will appear on your home screen</li>
-      </ol>`;
+    html += '<p style="color:#4ade80">✅ You\'re already running Cards of Factoria as an installed app!</p>';
   } else {
-    html = `
-      <p><b>Install on Desktop (Chrome / Edge):</b></p>
-      <ol style="padding-left:20px;margin-top:8px">
-        <li>Look for the install icon ⊕ in the address bar (right side)</li>
-        <li>Click it, then click <b>Install</b></li>
-        <li>The app will open in its own window and add a shortcut</li>
-      </ol>
-      <p style="margin-top:10px;font-size:.8rem;color:#aaa">Firefox / Safari desktop don't support PWA install — try Chrome or Edge.</p>`;
+    const steps = buildInstallSteps(browser, os);
+    html += `<p style="margin-bottom:8px"><b>Follow these steps to install:</b></p>
+      <ol style="padding-left:22px;margin:0">${steps.map(s => `<li style="margin-bottom:8px">${s}</li>`).join('')}</ol>`;
   }
   document.getElementById('install-instructions').innerHTML = html;
   document.getElementById('install-overlay').style.display = 'flex';
