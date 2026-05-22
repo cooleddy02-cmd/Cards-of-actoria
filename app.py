@@ -1609,6 +1609,7 @@ def on_poker_list(data):
             'players': len(t['players']),
             'phase': t['phase'],
             'big_blind': t['big_blind'],
+            'min_buyin': t.get('min_buyin', t['big_blind'] * 10),
         })
     emit('poker_list', {'tables': listing})
 
@@ -1621,26 +1622,27 @@ def on_poker_create(data):
     name = username
     try: sb = max(1, int(data.get('small_blind', 10)))
     except: sb = 10
-    try: buyin = max(sb * 20, int(data.get('buyin', 200)))
-    except: buyin = 200
+    min_buyin = sb * 20
+    try: buyin = max(min_buyin, int(data.get('buyin', min_buyin)))
+    except: buyin = min_buyin
     add_bots = bool(data.get('add_bots'))
     with _users_lock:
         users = load_users()
         if username not in users: return
         if users[username]['gems'] < buyin:
-            emit('casino_error', {'msg': 'Not enough gems for buy-in.'}); return
+            emit('casino_error', {'msg': 'Not enough gems for your buy-in.'}); return
         users[username]['gems'] -= buyin
         save_users(users)
     code = ''.join(random.choices(string.ascii_uppercase, k=5))
     while code in poker_tables:
         code = ''.join(random.choices(string.ascii_uppercase, k=5))
     t = casino.new_poker_table(code, name, request.sid, username, sb)
-    t['buyin'] = buyin
+    t['min_buyin'] = min_buyin
     t['players'][0]['chips'] = buyin
     if add_bots:
         for botn in ['Bot Alice','Bot Bob','Bot Carol']:
             casino.add_bot(t, botn)
-            t['players'][-1]['chips'] = buyin
+            t['players'][-1]['chips'] = sb * 40
     poker_tables[code] = t
     join_room(code)
     emit('poker_joined', {'code': code, 'your_idx': 0})
@@ -1661,12 +1663,16 @@ def on_poker_join(data):
         emit('casino_error', {'msg': 'Already at this table.'}); return
     if len(t['players']) >= 8:
         emit('casino_error', {'msg': 'Table full.'}); return
-    buyin = t.get('buyin', 200)
+    min_buyin = t.get('min_buyin', t['big_blind'] * 10)
+    try: buyin = int(data.get('buyin', min_buyin))
+    except: buyin = min_buyin
+    if buyin < min_buyin:
+        emit('casino_error', {'msg': f'Minimum buy-in is {min_buyin} 💎.'}); return
     with _users_lock:
         users = load_users()
         if username not in users: return
         if users[username]['gems'] < buyin:
-            emit('casino_error', {'msg': 'Not enough gems for buy-in.'}); return
+            emit('casino_error', {'msg': 'Not enough gems for your buy-in.'}); return
         users[username]['gems'] -= buyin
         save_users(users)
     t['players'].append({
@@ -1718,8 +1724,13 @@ def _remove_from_table(sid, code=None):
         idx = next((i for i,p in enumerate(t['players']) if p['sid'] == sid), None)
         if idx is None: continue
         p = t['players'][idx]
-        # Refund remaining chips + any live bet to user
-        refund = p['chips'] + p.get('bet', 0)
+        in_hand = t['phase'] not in ('waiting','showdown')
+        # Live bet stays in pot during an active hand (no loss-avoidance via leave/disconnect).
+        # Only the chips not yet committed this street are refunded.
+        if in_hand and p.get('bet', 0) > 0:
+            t['pot'] = t.get('pot', 0) + p['bet']
+            p['bet'] = 0
+        refund = p['chips']
         if p['user'] and refund > 0:
             with _users_lock:
                 users = load_users()
@@ -1727,7 +1738,7 @@ def _remove_from_table(sid, code=None):
                     users[p['user']]['gems'] += refund
                     save_users(users)
         # Mark as folded for in-progress hand to keep state consistent
-        if t['phase'] not in ('waiting','showdown') and not p['folded']:
+        if in_hand and not p['folded']:
             p['folded'] = True
             p['acted'] = True
         t['players'].pop(idx)

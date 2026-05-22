@@ -432,6 +432,7 @@ def public_view(table, viewer_idx=None):
         'dealer_idx': table['dealer_idx'],
         'current_bet': table['current_bet'],
         'big_blind': table['big_blind'],
+        'min_raise': table.get('min_raise', table['big_blind']),
         'message': table['message'],
         'showdown_info': table['showdown_info'],
         'your_hand_eval': viewer_eval,

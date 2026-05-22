@@ -563,11 +563,12 @@
   <div style="background:#1a1a1a;padding:12px;border-radius:10px;display:flex;flex-direction:column;gap:8px">
     <div class="field-label">Create New Table</div>
     <div style="display:flex;gap:6px">
-      <input id="pk-buyin" type="number" value="500" min="100" placeholder="Buy-in" style="flex:1"/>
+      <input id="pk-buyin" type="number" value="500" min="20" placeholder="Your buy-in 💎" style="flex:1"/>
       <input id="pk-sb" type="number" value="10" min="1" placeholder="Small blind" style="flex:1"/>
     </div>
+    <p class="sub" style="margin:-2px 0 0 0;font-size:.7rem">Min buy-in = small blind × 20. Each player chooses their own bring-in when joining.</p>
     <label style="font-size:.8rem;display:flex;align-items:center;gap:6px">
-      <input type="checkbox" id="pk-bots" checked/> Add 3 bots
+      <input type="checkbox" id="pk-bots" checked/> Add 3 bots (auto-buy at sb×40)
     </label>
     <button onclick="pokerCreate()">Create Table</button>
   </div>
@@ -575,8 +576,10 @@
     <div class="field-label">Join Existing Table</div>
     <div style="display:flex;gap:6px">
       <input id="pk-join-code" type="text" placeholder="Code (5 letters)" maxlength="5" style="text-transform:uppercase;flex:1"/>
-      <button onclick="pokerJoinByCode()" style="width:100px">Join</button>
+      <input id="pk-join-buyin" type="number" value="500" min="20" placeholder="Your buy-in 💎" style="width:130px"/>
+      <button onclick="pokerJoinByCode()" style="width:80px">Join</button>
     </div>
+    <p class="sub" style="margin:-2px 0 0 0;font-size:.7rem">Bring whatever you like (at least the table's min buy-in).</p>
   </div>
   <div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -1589,7 +1592,7 @@ socket.on('poker_list', d => {
   d.tables.forEach(t => {
     const row = document.createElement('div');
     row.style.cssText = 'background:#1a1a1a;padding:8px 12px;border-radius:8px;display:flex;justify-content:space-between;align-items:center';
-    row.innerHTML = `<div><span style="font-family:monospace;letter-spacing:2px">${t.code}</span> · ${t.players}p · ${t.phase} · BB ${t.big_blind}</div>`;
+    row.innerHTML = `<div><span style="font-family:monospace;letter-spacing:2px">${t.code}</span> · ${t.players}p · ${t.phase} · BB ${t.big_blind} · min buy-in ${t.min_buyin || t.big_blind*10} 💎</div>`;
     const btn = document.createElement('button'); btn.className='btn-sm'; btn.textContent='Join';
     btn.onclick = () => { document.getElementById('pk-join-code').value = t.code; pokerJoinByCode(); };
     row.appendChild(btn); list.appendChild(row);
@@ -1605,7 +1608,9 @@ function pokerCreate() {
 function pokerJoinByCode() {
   const code = document.getElementById('pk-join-code').value.trim().toUpperCase();
   if (!code) { document.getElementById('poker-err').textContent='Enter a code.'; return; }
-  socket.emit('poker_join', { username: session.username, name: session.username, code });
+  const buyin = parseInt(document.getElementById('pk-join-buyin').value) || 500;
+  if (session.gems < buyin) { document.getElementById('poker-err').textContent='Not enough gems for that buy-in.'; return; }
+  socket.emit('poker_join', { username: session.username, name: session.username, code, buyin });
 }
 socket.on('poker_joined', d => {
   pkCode = d.code; pkYourIdx = d.your_idx;
@@ -1682,7 +1687,10 @@ socket.on('poker_state', s => {
   if (isYourTurn) {
     const you = s.players[pkYourIdx];
     const toCall = s.current_bet - you.bet;
-    const minRaise = Math.max(s.big_blind, s.current_bet * 2 || s.big_blind * 2);
+    // Server rule: amount (total bet this street) >= to_call + min_raise increment.
+    // We send the total "bet to" amount, so the minimum legal total is current_bet + min_raise.
+    const minRaiseInc = s.min_raise || s.big_blind;
+    const minRaise = Math.min(you.chips + you.bet, s.current_bet + minRaiseInc);
     const maxRaise = you.chips + you.bet;
     if (toCall === 0) {
       const b1 = document.createElement('button'); b1.textContent='Check'; b1.onclick=()=>pokerAction('check'); acts.appendChild(b1);
