@@ -89,6 +89,19 @@ CARDLIST = [
         {"id":"golem_flip","name":"Flip","desc":"After 4 turns: ATK becomes current DEF, DEF resets to 1."},
         {"id":"golem_immune_friendly","name":"Inert","desc":"Cannot be buffed by cards on your own side."},
         {"id":"golem_banish","name":"Banish","desc":"When destroyed, banished — no revive and no death effects."}]},
+    {"name":"Sad Dream",    "atk":0,"def":2,"block":1, "specials":[
+        {"id":"sad_no_draw","name":"Nightmare","desc":"You can't draw cards. Your opponent draws +1 each turn while this is on the field."},
+        {"id":"sad_send","name":"Pass On","desc":"Once: spend 3 HP to send this card to your opponent's side."},
+        {"id":"sad_self_damage","name":"Sorrow","desc":"Every 4 turns: deals 4 damage to its owner."},
+        {"id":"no_revive","name":"No Revive","desc":"Cannot be revived."},
+        {"id":"no_sacrifice","name":"No Sacrifice","desc":"Cannot be sacrificed."}]},
+    {"name":"Amegma",       "atk":2,"def":2, "specials":[
+        {"id":"amegma_free_attack","name":"Free Aim","desc":"Can attack the player directly even if the opponent has cards on the field."},
+        {"id":"amegma_block_break","name":"Block Crush","desc":"When attacking a card with block: removes all block but deals no damage that attack."}]},
+    {"name":"Ice",          "atk":1,"def":3, "specials":[
+        {"id":"ice_counter_freeze","name":"Ice Shield","desc":"When hit: 50% chance to freeze the attacker until your next turn ends."},
+        {"id":"frost_breath","name":"Frost Breath","desc":"Active: freeze all enemy cards for 1 turn, but they take 50% less damage for 2 turns."},
+        {"id":"ice_cream_ability","name":"Ice Cream","desc":"Active: give a card +2 ATK +1 DEF for 2 turns and heal yourself 2 HP. 5-turn cooldown."}]},
 ]
 
 SPECIAL_CARDS = [

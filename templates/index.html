@@ -406,7 +406,8 @@ let session = { username: null, gems: 0, owned_decks: ['basic'], wins: 0, losses
 let selectedDiff = 'easy';
 
 const ACTIVE_ABILITIES = ['circus_bounce','apple_buff','sword_buff','milk_summon','milk_drink',
-  'greed_atlas','fisher_pull','fisher_catch','core_dark_star','undying_donut'];
+  'greed_atlas','fisher_pull','fisher_catch','core_dark_star','undying_donut',
+  'sad_send','frost_breath','ice_cream_ability'];
 
 // ═══════════════════════════════════════════════════════
 //  SCREEN ROUTING
@@ -751,8 +752,8 @@ function renderYourField(field, phase, isMyTurn) {
     const isSel=selectedAttacker===i;
     const isAbTarget=abilityMode && (abilityMode.target_pool==='your_field' || abilityMode.target_pool==='all');
     const div=document.createElement('div');
-    div.className='card-slot'+(isSel?' selected':'')+(card.attacked?' attacked':'')+
-      (card.frozen?' frozen':'')+(card.guard_remaining>0?' guarded':'');
+    div.className='card-slot'+(isSel?' selected':'')+(isAbTarget?' targetable':'')+
+      (card.attacked?' attacked':'')+(card.frozen?' frozen':'')+(card.guard_remaining>0?' guarded':'');
     div.innerHTML=cardInnerHTML(card);
     if (isAbTarget) div.addEventListener('click',()=>confirmAbilityTarget(card.uid,'your_field'));
     else if (canSel) div.addEventListener('click',()=>selectAttacker(i));
@@ -849,6 +850,7 @@ function startAbility(id,card,fishType) {
     circus_bounce:'your_field',apple_buff:'your_field',sword_buff:'your_field',
     milk_drink:'your_field',core_dark_star:'opp',
     fisher_catch:fishType==='light'?'all':'opp',undying_donut:'your_field',
+    ice_cream_ability:'your_field',
   };
   if (id in targetMap) {
     abilityMode.target_pool=targetMap[id];

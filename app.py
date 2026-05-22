@@ -218,6 +218,10 @@ def process_turn_start(room, room_code, active_index):
             card['flipped'] = True
             msgs.append(f"🪨 {card['name']} flips! ATK→{card['atk']} DEF→1")
 
+        if _has(card, 'sad_self_damage') and tof > 0 and tof % 4 == 0:
+            active['hp'] -= 4
+            msgs.append(f"💔 {card['name']} Sorrow: owner -{4} HP!")
+
         if _has(card, 'sun_aoe') and not sun_done:
             for ec in opp['field']:
                 if not _has(ec, 'aoe_immune') and not _has(ec, 'duraza_def_lock'):
@@ -238,6 +242,14 @@ def process_turn_start(room, room_code, active_index):
                 card['def'] -= card['dark_stars']
             if card.get('guard_remaining', 0) > 0:
                 card['guard_remaining'] -= 1
+            if card.get('frost_shield_turns', 0) > 0:
+                card['frost_shield_turns'] -= 1
+            if card.get('ice_cream_turns', 0) > 0:
+                card['ice_cream_turns'] -= 1
+                if card['ice_cream_turns'] == 0:
+                    card['atk'] -= card.pop('ice_cream_atk', 0)
+                    card['def'] -= card.pop('ice_cream_def', 0)
+                    msgs.append(f"🍦 {card['name']}: Ice Cream wore off!")
 
     for pi in range(2):
         i = 0
@@ -270,6 +282,8 @@ def apply_damage(card, damage, is_aoe=False, bypass_guard=False, bypass_block=Fa
     if _has(card, 'duraza_hit_limit'):
         if card.get('hit_this_turn', 0) >= 1: return 0
         card['hit_this_turn'] = card.get('hit_this_turn', 0) + 1
+    if card.get('frost_shield_turns', 0) > 0:
+        damage = max(0, damage // 2)
     if not bypass_block and card.get('block', 0) > 0:
         absorbed = min(card['block'], damage)
         card['block'] -= absorbed; damage -= absorbed
@@ -281,6 +295,12 @@ def _exec_attack(room, room_code, pi, ai, ti):
     apl = players[pi]; dpl = players[1 - pi]
     if ai >= len(apl['field']): return
     atk = apl['field'][ai]; msgs = []
+
+    # Frozen check (Clock freeze or Ice counter-freeze)
+    if atk.get('frozen'):
+        room['message'] = f"❄️ {atk['name']} is frozen and can't attack!"
+        room['phase'] = 'attack'
+        broadcast_state(room_code); return
 
     # Side AoE
     if _has(atk, 'side_aoe'):
@@ -294,9 +314,20 @@ def _exec_attack(room, room_code, pi, ai, ti):
         room['message'] = ' | '.join(msgs); room['phase'] = 'attack'
         broadcast_state(room_code); return
 
+    # Amegma block break (before direct/target logic)
+    if _has(atk, 'amegma_block_break') and ti is not None:
+        if ti < len(dpl['field']):
+            tgt_check = dpl['field'][ti]
+            if tgt_check.get('block', 0) > 0:
+                tgt_check['block'] = 0
+                atk['attacked'] = True
+                room['message'] = f"💥 {atk['name']} crushed {tgt_check['name']}'s block! No damage."
+                room['phase'] = 'attack'
+                broadcast_state(room_code); return
+
     # Direct
     if ti is None:
-        if not _has(atk, 'wrath_direct') and dpl['field']:
+        if not _has(atk, 'wrath_direct') and not _has(atk, 'amegma_free_attack') and dpl['field']:
             room['message'] = "Can't attack directly — opponent has cards!"
             room['phase'] = 'attack'; broadcast_state(room_code); return
         dpl['hp'] -= atk['atk']
@@ -338,10 +369,15 @@ def _exec_attack(room, room_code, pi, ai, ti):
         second = apply_damage(tgt, dmg)
         if second > 0: msgs.append(f"Double Strike! +{second}!")
 
-    # Freeze
+    # Freeze (Clock)
     if _has(atk, 'freeze') and not tgt.get('frozen'):
         tgt['frozen'] = True; tgt['freeze_by'] = pi; tgt['freeze_turns'] = 1
         msgs.append(f"❄️ {tgt['name']} frozen!")
+
+    # Ice counter-freeze (Ice Shield)
+    if _has(tgt, 'ice_counter_freeze') and actual > 0 and not atk.get('frozen') and random.random() < 0.5:
+        atk['frozen'] = True; atk['freeze_by'] = 1 - pi; atk['freeze_turns'] = 1
+        msgs.append(f"❄️ {tgt['name']} counter-froze {atk['name']}!")
 
     # Phoenix burn
     if _has(atk, 'phoenix_burn'):
@@ -565,13 +601,22 @@ def _do_end_turn(room, room_code, pi):
     room['turn_count']            = room.get('turn_count', 0) + 1
 
     decks = room.get('player_deck', {})
+    nt_has_sad  = any(_has(c, 'sad_no_draw') for c in players[nt]['field'])
+    pi_has_sad  = any(_has(c, 'sad_no_draw') for c in players[pi]['field'])
     if room['first_turns'][nt]:
         room['first_turns'][nt] = False
         room['message'] = f"{players[nt]['name']}'s turn — no draw (first turn)."
+    elif nt_has_sad:
+        room['message'] = f"{players[nt]['name']} can't draw (Sad Dream)!"
     else:
         drawn = draw_from_deck(decks.get(nt, 'basic'))
         players[nt]['hand'].append(drawn)
-        room['message'] = f"{players[nt]['name']} drew a card."
+        if pi_has_sad:
+            drawn2 = draw_from_deck(decks.get(nt, 'basic'))
+            players[nt]['hand'].append(drawn2)
+            room['message'] = f"{players[nt]['name']} drew 2 cards (Sad Dream bonus)!"
+        else:
+            room['message'] = f"{players[nt]['name']} drew a card."
 
     process_turn_start(room, room_code, nt)
 
@@ -972,6 +1017,51 @@ def on_use_ability(data):
             if t_pi==pi: emit('error_msg',{'msg':'Dark Fish targets enemy cards.'}); return
             t_card['atk']=max(0,t_card['atk']-2); t_card['dark_fish_turns']=3
             room['message']=f"🌑 Dark Fish: {t_card['name']} -2 ATK for 3 turns!"
+        broadcast_state(room_code)
+
+    elif ability_id == 'sad_send':
+        sc = next((c for c in player['field'] if _has(c, 'sad_send')), None)
+        if sc is None: return
+        if sc.get('sad_sent'): emit('error_msg', {'msg': 'Pass On already used.'}); return
+        if player['hp'] <= 3: emit('error_msg', {'msg': 'Not enough HP (need >3).'}); return
+        player['hp'] -= 3
+        player['field'].remove(sc)
+        sc['sad_sent'] = True
+        opp['field'].append(sc) if len(opp['field']) < 4 else player['field'].append(sc)
+        room['message'] = f"💔 Sad Dream sent to opponent at cost of 3 HP!"
+        broadcast_state(room_code)
+
+    elif ability_id == 'frost_breath':
+        ic = next((c for c in player['field'] if _has(c, 'frost_breath')), None)
+        if ic is None: return
+        if ic.get('frozen'): emit('error_msg', {'msg': 'Frozen.'}); return
+        if ic.get('frost_breath_used_turn') == room['turn_count']:
+            emit('error_msg', {'msg': 'Frost Breath: once per turn.'}); return
+        for ec in opp['field']:
+            ec['frozen'] = True; ec['freeze_by'] = pi; ec['freeze_turns'] = 1
+            ec['frost_shield_turns'] = 2
+        ic['frost_breath_used_turn'] = room['turn_count']
+        room['message'] = f"🌬️ Frost Breath! All enemy cards frozen + 50% damage shield for 2 turns!"
+        broadcast_state(room_code)
+
+    elif ability_id == 'ice_cream_ability':
+        ic2 = next((c for c in player['field'] if _has(c, 'ice_cream_ability')), None)
+        if ic2 is None: return
+        if ic2.get('frozen'): emit('error_msg', {'msg': 'Frozen.'}); return
+        last = ic2.get('ice_cream_last_turn', -99)
+        if room['turn_count'] - last < 5:
+            emit('error_msg', {'msg': f"Ice Cream on cooldown ({5 - (room['turn_count'] - last)} turns)."}); return
+        t_pi, _, t_card = _find_by_uid(players, target_uid)
+        if t_card is None or t_pi != pi: return
+        if _has(t_card, 'golem_immune_friendly'):
+            emit('error_msg', {'msg': 'Golem is immune to friendly effects.'}); return
+        t_card['atk'] += 2; t_card['def'] += 1
+        t_card['ice_cream_atk'] = t_card.get('ice_cream_atk', 0) + 2
+        t_card['ice_cream_def'] = t_card.get('ice_cream_def', 0) + 1
+        t_card['ice_cream_turns'] = 2
+        player['hp'] += 2
+        ic2['ice_cream_last_turn'] = room['turn_count']
+        room['message'] = f"🍦 {t_card['name']} gets Ice Cream! +2 ATK +1 DEF for 2 turns, +2 HP!"
         broadcast_state(room_code)
 
     elif ability_id == 'undying_donut':
