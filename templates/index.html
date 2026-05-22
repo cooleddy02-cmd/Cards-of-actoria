@@ -991,10 +991,11 @@ function buildInstallSteps(browser, os) {
   }
   if (browser === 'Brave') {
     return [
-      'Click the <b>☰</b> menu (three horizontal lines, <b>top-right corner</b> of Brave)',
-      'Click <b>Install Cards of Factoria…</b> near the bottom of the menu',
-      'Click <b>Install</b> in the confirmation popup',
-      '<b>Don\'t see "Install…"?</b> Click the <b>🦁 lion icon</b> in the address bar → toggle <b>Shields</b> OFF for this site → refresh the page'
+      'Click the <b>☰</b> menu (three horizontal lines) in the <b>top-right corner</b> of Brave',
+      'Hover/click <b>Save and share</b> (about ⅔ of the way down the menu)',
+      'In the submenu that opens, click <b>Install page as app…</b> (or <b>Install Cards of Factoria…</b>)',
+      'Click <b>Install</b> in the confirmation popup — the app opens in its own window',
+      '<b>Don\'t see "Install page as app"?</b> The site isn\'t recognized as installable yet. Fix: click the <b>🦁 lion icon</b> in the address bar → toggle <b>Shields</b> OFF → refresh. Or open the live deployed URL (ends in <b>.replit.app</b>) instead of the dev preview URL.'
     ];
   }
   if (browser === 'Opera') {
