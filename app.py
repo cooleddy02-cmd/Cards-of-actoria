@@ -392,6 +392,13 @@ def _exec_attack(room, room_code, pi, ai, ti):
     if ai >= len(apl['field']): return
     atk = apl['field'][ai]; msgs = []
 
+    # Time Steal bonus turn: can't deal damage
+    if apl.get('no_damage_turn'):
+        room['message'] = f"⏳ Time Steal: {atk['name']} can't deal damage this turn!"
+        atk['attacked'] = True
+        room['phase'] = 'attack'
+        broadcast_state(room_code); return
+
     # Frozen check (Clock freeze or Ice counter-freeze)
     if atk.get('frozen'):
         room['message'] = f"❄️ {atk['name']} is frozen and can't attack!"
@@ -724,7 +731,17 @@ def _do_end_turn(room, room_code, pi):
         c['attacked'] = False
     increment_turns(room)
 
-    nt = 1 - pi
+    # Clear bonus-turn flags now that this turn is ending
+    players[pi].pop('no_damage_turn', None)
+
+    # Time Steal: bonus turn for same player instead of switching
+    if players[pi].pop('bonus_turn_pending', False):
+        nt = pi
+        players[pi]['force_no_draw'] = True
+        players[pi]['no_damage_turn'] = True
+        room['message'] = f"⏳ {players[pi]['name']} steals an extra turn! (no draw, no damage)"
+    else:
+        nt = 1 - pi
     room['current_turn']          = nt
     room['phase']                 = 'play'
     room['cards_played']          = 0
@@ -1122,6 +1139,21 @@ def on_use_ability(data):
     if pi is None or pi != room['current_turn']: return
     if room['phase'] not in ('play','attack'): return
     player = players[pi]; opp = players[1-pi]
+
+    if ability_id == 'rewind_quick':
+        rfi = next((i for i,c in enumerate(player['field']) if c.get('uid')==card_uid and _has(c,'rewind_quick')), None)
+        if rfi is None: emit('error_msg',{'msg':'Rewind not on your field.'}); return
+        rc = player['field'][rfi]
+        if rc.get('frozen'): emit('error_msg',{'msg':'Frozen.'}); return
+        if room['turn_count'] - player.get('last_rewind_turn', -99) < 2:
+            emit('error_msg',{'msg':'Time Steal on cooldown (once per 2 turns).'}); return
+        player['field'].pop(rfi)
+        player['hp'] -= 3
+        player['bonus_turn_pending'] = True
+        player['last_rewind_turn'] = room['turn_count']
+        room['message'] = f"⏳ Time Steal! {player['name']} sacrifices Rewind (-3 HP) for an extra turn."
+        _check_win(room, players)
+        broadcast_state(room_code); return
 
     if ability_id == 'circus_bounce':
         _, cfi, ccard = _find_by_uid(players, card_uid)

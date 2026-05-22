@@ -100,7 +100,9 @@
     .stat-item .sl{font-size:.7rem;color:#666;text-transform:uppercase;letter-spacing:1px}
 
     /* ═══════════════ GAME UI ═══════════════ */
-    .player-bar{display:flex;justify-content:space-between;align-items:center;background:#1a1a1a;border-radius:8px;padding:6px 12px;font-size:.85rem}
+    .player-bar{display:flex;justify-content:space-between;align-items:center;background:#1a1a1a;border-radius:8px;padding:6px 12px;font-size:.85rem;gap:8px;flex-wrap:wrap}
+    /* Leave space for Edge "Install app" icon in URL bar when not running standalone */
+    @media (display-mode: browser){ #game-screen .player-bar:first-of-type{padding-right:60px} }
     .player-bar .pname{font-weight:bold}
     .player-bar .hp{color:#ff3333;font-weight:bold}
     .field-label{font-size:.62rem;color:#444;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
@@ -727,7 +729,7 @@ let selectedDiff = 'easy';
 
 const ACTIVE_ABILITIES = ['circus_bounce','apple_buff','sword_buff','milk_summon','milk_drink',
   'greed_atlas','fisher_pull','fisher_catch','core_dark_star','undying_donut',
-  'sad_send','frost_breath','ice_cream_ability',
+  'sad_send','frost_breath','ice_cream_ability','rewind_quick',
   'atlas_bhh_self_pull','bhole_atlas_summon','atlas_greed_nodraw','angel_emp'];
 
 const SAC_REQS = { 'Ace': 2, 'Lich': 3, 'Omega': 3, 'Black Hole': 3 };
