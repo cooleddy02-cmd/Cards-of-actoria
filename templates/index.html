@@ -105,6 +105,7 @@
        Install-app icon, extension icons, or scrollbar can't cover enemy HP. */
     .player-bar.top-bar{padding-right:70px}
     @media (display-mode: standalone){ .player-bar.top-bar{padding-right:12px} }
+    #opp-hp-badge{position:fixed;right:12px;bottom:12px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;background:rgba(20,20,20,.92);border:2px solid #ff3333;border-radius:10px;padding:6px 12px;z-index:50;box-shadow:0 4px 12px rgba(0,0,0,.6);pointer-events:none}
     .player-bar .pname{font-weight:bold}
     .player-bar .hp{color:#ff3333;font-weight:bold}
     .field-label{font-size:.62rem;color:#444;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
@@ -398,13 +399,16 @@
 <!-- ═══ GAME ═══ -->
 <div class="screen" id="game-screen">
   <div class="player-bar top-bar">
-    <div style="display:flex;flex-direction:column;gap:1px">
+    <div style="display:flex;flex-direction:column;gap:1px;flex:1;min-width:0">
       <span class="pname" id="opp-name-bar">Opponent</span>
       <span style="font-family:monospace;font-size:.58rem;color:#444" id="opp-id-bar"></span>
     </div>
     <span id="bot-gem-hint" style="display:none;font-size:.7rem;color:#ffcc44"></span>
     <span style="color:#555;font-size:.72rem" id="opp-hand-count">Hand: 0</span>
-    <span class="hp">❤️ <span id="opp-hp">20</span></span>
+  </div>
+  <div id="opp-hp-badge">
+    <span style="font-size:.6rem;color:#aaa;text-transform:uppercase;letter-spacing:1px">Enemy HP</span>
+    <span style="font-size:1.6rem;font-weight:bold;color:#ff3333">❤️ <span id="opp-hp">20</span></span>
   </div>
   <div><div class="field-label">Opponent's Field</div><div class="field" id="opp-field"></div></div>
   <div class="mid-bar">
