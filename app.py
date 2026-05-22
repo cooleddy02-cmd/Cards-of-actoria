@@ -52,7 +52,17 @@ def new_card(base):
         c['guard_remaining'] = 2
     if _has(c, 'v18_reroll'):
         c['atk'] = random.randint(0, 8)
+    if _has(c, 'duraza_dual'):
+        c['duraza_strike2_atk'] = c['atk']
     return c
+
+def _buff_atk(card, amount):
+    """Apply an ATK buff. For Duraza dual-strike: only buffs of +1 scale both
+    strikes; larger buffs only boost the first strike."""
+    card['atk'] += amount
+    if _has(card, 'duraza_dual'):
+        if amount <= 1:
+            card['duraza_strike2_atk'] = card.get('duraza_strike2_atk', card['atk'] - amount) + amount
 
 def _is_dead(card):
     if card.get('base_def', 1) == 0:
@@ -364,9 +374,10 @@ def _exec_attack(room, room_code, pi, ai, ti):
         if actual == 0: msgs.append(f"{tgt['name']} blocked!")
         else: msgs.append(f"{atk['name']} hits {tgt['name']} for {actual}!")
 
-    # Duraza double strike
+    # Duraza double strike (second hit uses duraza_strike2_atk if set)
     if _has(atk, 'duraza_dual'):
-        second = apply_damage(tgt, dmg)
+        dmg2 = atk.get('duraza_strike2_atk', dmg)
+        second = apply_damage(tgt, dmg2)
         if second > 0: msgs.append(f"Double Strike! +{second}!")
 
     # Freeze (Clock)
@@ -395,7 +406,7 @@ def _exec_attack(room, room_code, pi, ai, ti):
             msgs.append(f"{tgt['name']} destroyed!")
             if excess > 0: dpl['hp'] -= excess; msgs.append(f"{excess} excess damage!")
             if _has(atk, 'diamond_gain') and atk in apl['field']:
-                atk['atk'] += 1; atk['def'] += 1; msgs.append(f"💎 +1/+1!")
+                _buff_atk(atk, 1); atk['def'] += 1; msgs.append(f"💎 +1/+1!")
 
     atk['attacked'] = True
     _check_win(room, players)
@@ -943,13 +954,13 @@ def on_use_ability(data):
             emit('error_msg', {'msg': 'Golem is immune to friendly effects.'}); return
         if ability_id == 'apple_buff':
             if t_card['name'] == 'Undying':
-                t_card['atk']+=2; t_card['def']+=2; t_card['lethal_block']=True
+                _buff_atk(t_card, 2); t_card['def']+=2; t_card['lethal_block']=True
                 room['message'] = "🍎 Apple on Undying: +2/+2 + lethal block!"
             else:
-                t_card['def']+=2; t_card['atk']+=1
+                t_card['def']+=2; _buff_atk(t_card, 1)
                 room['message'] = f"🍎 Apple: {t_card['name']} +2 DEF +1 ATK!"
         else:
-            t_card['atk']+=2
+            _buff_atk(t_card, 2)
             room['message'] = f"⚔️ Sword: {t_card['name']} +2 ATK!"
         if sfi is not None: player['field'].pop(sfi)
         elif shi is not None: player['hand'].pop(shi)
@@ -1055,7 +1066,7 @@ def on_use_ability(data):
         if t_card is None or t_pi != pi: return
         if _has(t_card, 'golem_immune_friendly'):
             emit('error_msg', {'msg': 'Golem is immune to friendly effects.'}); return
-        t_card['atk'] += 2; t_card['def'] += 1
+        _buff_atk(t_card, 2); t_card['def'] += 1
         t_card['ice_cream_atk'] = t_card.get('ice_cream_atk', 0) + 2
         t_card['ice_cream_def'] = t_card.get('ice_cream_def', 0) + 1
         t_card['ice_cream_turns'] = 2
@@ -1077,7 +1088,7 @@ def on_use_ability(data):
             emit('error_msg', {'msg': 'Golem is immune to friendly effects.'}); return
         if t_card.get('donuts', 0) >= 2:
             emit('error_msg', {'msg': 'Max 2 donuts per card.'}); return
-        t_card['atk'] += 1; t_card['def'] += 1
+        _buff_atk(t_card, 1); t_card['def'] += 1
         t_card['donuts'] = t_card.get('donuts', 0) + 1
         uc['donut_used_turn'] = room['turn_count']
         room['message'] = f"🍩 {t_card['name']} +1/+1! ({t_card['donuts']}/2 donuts)"
