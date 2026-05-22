@@ -6,6 +6,9 @@ on:
     paths:
       - 'desktop/**'
       - '.github/workflows/build-exe.yml'
+      - 'casino.py'
+      - 'app.py'
+      - 'templates/**'
   workflow_dispatch:
 
 jobs:
@@ -27,32 +30,38 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Build executable
+      - name: Build executable (onedir for fewer AV false positives)
         run: |
-          pyinstaller --noconfirm --onefile --windowed `
+          pyinstaller --noconfirm --clean --onedir --windowed `
             --name "CardsOfFactoria" `
             --icon "icon.ico" `
+            --version-file "version_info.txt" `
+            --noupx `
             main.py
 
       - name: Stage release files
         run: |
           mkdir release
-          copy dist\CardsOfFactoria.exe release\
-          copy config.json release\
-          copy README.md release\ 2>$null
+          xcopy /E /I /Y dist\CardsOfFactoria release\CardsOfFactoria
+          copy config.json release\CardsOfFactoria\
+          copy README.md release\CardsOfFactoria\ 2>$null
+        shell: pwsh
+
+      - name: Zip release folder
+        run: |
+          Compress-Archive -Path release\CardsOfFactoria -DestinationPath release\CardsOfFactoria-Windows.zip -Force
         shell: pwsh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: CardsOfFactoria-Windows
-          path: desktop/release/
+          path: desktop/release/CardsOfFactoria-Windows.zip
 
       - name: Create GitHub Release (on tag)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            desktop/release/CardsOfFactoria.exe
-            desktop/release/config.json
+            desktop/release/CardsOfFactoria-Windows.zip
           generate_release_notes: true
