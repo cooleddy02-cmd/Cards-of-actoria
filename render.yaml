@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: cards-of-factoria
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install flask flask-socketio eventlet pillow
+    startCommand: python main.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
