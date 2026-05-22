@@ -602,6 +602,7 @@
     <div id="pk-message" style="text-align:center;color:#ffcc44;min-height:1.2rem;font-size:.85rem"></div>
   </div>
   <div id="pk-your-hand" style="display:flex;gap:6px;justify-content:center;min-height:90px"></div>
+  <div id="pk-hand-strength" style="text-align:center;color:#ffcc44;font-size:.85rem;min-height:1.4rem"></div>
   <div id="pk-actions" class="btn-row" style="display:none"></div>
   <button id="pk-start-btn" onclick="pokerStartHand()" style="display:none">Start Hand</button>
 </div>
@@ -1662,6 +1663,15 @@ socket.on('poker_state', s => {
   const yh = document.getElementById('pk-your-hand'); yh.innerHTML = '';
   if (pkYourIdx !== null && s.players[pkYourIdx]) {
     s.players[pkYourIdx].hand.forEach(c => yh.appendChild(pkCardEl(c)));
+  }
+  // Hand strength readout
+  const hs = document.getElementById('pk-hand-strength');
+  if (s.your_hand_eval) {
+    const n = s.your_hand_eval.stars;
+    const stars = '★'.repeat(n) + '☆'.repeat(5 - n);
+    hs.innerHTML = `<b>${s.your_hand_eval.name}</b> &nbsp; <span style="color:#ffd700">${stars}</span>`;
+  } else {
+    hs.textContent = '';
   }
   // Actions
   const acts = document.getElementById('pk-actions'); acts.innerHTML = '';

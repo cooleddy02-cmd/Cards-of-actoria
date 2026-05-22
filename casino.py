@@ -122,9 +122,35 @@ def best_hand(cards7):
 
 HAND_NAMES = ['High Card','Pair','Two Pair','Three of a Kind','Straight',
               'Flush','Full House','Four of a Kind','Straight Flush','Royal Flush']
+HAND_STARS = [1, 2, 2, 3, 3, 4, 4, 5, 5, 5]
 
 def hand_name(rank_tuple):
     return HAND_NAMES[rank_tuple[0]]
+
+def evaluate_viewer_hand(hole, community):
+    """Best hand name + 1-5 star strength from any 2+ cards. None if <2 hole."""
+    if not hole or len(hole) < 2:
+        return None
+    cards = list(hole) + list(community or [])
+    if len(cards) < 5:
+        # Pre-flop / partial: just rank the hole pair
+        vals = sorted([RANK_VAL[c[0]] for c in hole], reverse=True)
+        suited = len(set(c[1] for c in hole)) == 1
+        if vals[0] == vals[1]:
+            stars = 3 if vals[0] >= 10 else 2
+            return {'name': f'Pocket {hole[0][0]}s', 'stars': stars}
+        gap = vals[0] - vals[1]
+        if vals[0] >= 12 and vals[1] >= 10:
+            return {'name': 'High Cards' + (' (suited)' if suited else ''),
+                    'stars': 3 if suited else 2}
+        if suited and gap <= 4:
+            return {'name': 'Suited Connectors', 'stars': 2}
+        if vals[0] >= 12:
+            return {'name': f'High {hole[0][0] if vals[0]==RANK_VAL[hole[0][0]] else hole[1][0]}',
+                    'stars': 2}
+        return {'name': 'Weak Hole', 'stars': 1}
+    rank = best_hand(cards)
+    return {'name': HAND_NAMES[rank[0]], 'stars': HAND_STARS[rank[0]]}
 
 # ═══════════════════════════════════════════════════════
 #  HOLD'EM TABLE STATE
@@ -255,11 +281,19 @@ def player_action(table, pidx, action, amount=0):
     _advance_after_action(table)
     return True, "OK"
 
+def _runout_community(table):
+    """Deal remaining community cards (no betting) so showdown always shows 5."""
+    while len(table['community']) < 5 and table['deck']:
+        table['deck'].pop()  # burn
+        if table['deck']:
+            table['community'].append(table['deck'].pop())
+
 def _advance_after_action(table):
-    # Folded down to one player → collect bets and award immediately
+    # Folded down to one player → collect bets, runout board for display, award
     in_hand = [i for i,p in enumerate(table['players']) if not p['folded']]
     if len(in_hand) == 1:
         _collect_bets(table)
+        _runout_community(table)
         _award_pot(table, in_hand)
         table['phase'] = 'showdown'
         return
@@ -315,6 +349,7 @@ def _next_street(table):
     table['message'] = f"{['Flop','Turn','River'][['flop','turn','river'].index(table['phase'])]}! {table['players'][table['turn_idx']]['name']} to act."
 
 def _showdown(table):
+    _runout_community(table)
     in_hand = [i for i,p in enumerate(table['players']) if not p['folded']]
     if len(in_hand) == 1:
         _award_pot(table, in_hand)
@@ -382,6 +417,11 @@ def public_view(table, viewer_idx=None):
             'folded': p['folded'], 'all_in': p['all_in'], 'is_bot': p['is_bot'],
             'hand': p['hand'] if show else [{'r':'?','s':'?'} for _ in p['hand']],
         })
+    viewer_eval = None
+    if viewer_idx is not None and 0 <= viewer_idx < len(table['players']):
+        vp = table['players'][viewer_idx]
+        if vp['hand'] and not vp['folded']:
+            viewer_eval = evaluate_viewer_hand(vp['hand'], table['community'])
     return {
         'code': table['code'],
         'players': pubs,
@@ -394,4 +434,5 @@ def public_view(table, viewer_idx=None):
         'big_blind': table['big_blind'],
         'message': table['message'],
         'showdown_info': table['showdown_info'],
+        'your_hand_eval': viewer_eval,
     }
