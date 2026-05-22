@@ -277,6 +277,7 @@
   <div class="profile-bar" id="menu-profile" style="display:none">
     <div>
       <div class="uname" id="menu-uname">Player</div>
+      <div id="menu-title" style="font-size:.7rem;font-weight:bold;margin-top:1px"></div>
       <div class="usub" id="menu-stats">0 wins · 0 losses</div>
       <div style="font-size:.65rem;color:#555;margin-top:2px;font-family:monospace;letter-spacing:1px" id="menu-player-id"></div>
     </div>
@@ -874,6 +875,7 @@ socket.on('auth_ok', d => {
   session.wins        = d.wins;
   session.losses      = d.losses;
   session.player_id   = d.player_id || null;
+  session.title       = d.title || null;
   renderMenuProfile();
   showScreen('menu-screen');
 });
@@ -892,6 +894,13 @@ function renderMenuProfile() {
     document.getElementById('menu-uname').textContent = session.username;
     document.getElementById('menu-stats').textContent = `${session.wins} wins · ${session.losses} losses`;
     document.getElementById('menu-player-id').textContent = session.player_id ? `ID: ${session.player_id}` : '';
+    const t = session.title;
+    const tEl = document.getElementById('menu-title');
+    if (t) {
+      const multTxt = t.mult > 1 ? ` · ${t.mult}× gems` : '';
+      tEl.textContent = `${t.emoji} ${t.name}${multTxt}`;
+      tEl.style.color = t.color;
+    } else { tEl.textContent = ''; }
   } else {
     gemEl.style.display = 'none';
     profEl.style.display = 'none';
@@ -1493,8 +1502,13 @@ function cancelAbility() {
 // ═══════════════════════════════════════════════════════
 socket.on('gem_reward', d => {
   session.gems = (d.total !== undefined) ? d.total : (session.gems + d.amount);
+  if (d.title) { session.title = d.title; session.wins = (session.wins||0) + 1; renderMenuProfile(); }
   document.getElementById('menu-gem-count').textContent = session.gems;
-  document.getElementById('gem-overlay-amount').textContent = `+${d.amount} 💎`;
+  let mainTxt = `+${d.amount} 💎`;
+  if (d.base !== undefined && d.amount !== d.base) {
+    mainTxt += ` (base ${d.base} × ${(d.amount/d.base).toFixed(2).replace(/\.?0+$/,'')})`;
+  }
+  document.getElementById('gem-overlay-amount').textContent = mainTxt;
   document.getElementById('gem-overlay-label').textContent =
     `for winning on ${d.difficulty ? d.difficulty.charAt(0).toUpperCase()+d.difficulty.slice(1) : ''}`;
   document.getElementById('gem-overlay-total').textContent = `Total: ${session.gems} 💎`;
@@ -1707,14 +1721,25 @@ socket.on('admin_ok', d => {
   tbody.innerHTML = '';
   d.players.forEach(p => {
     const tr = document.createElement('tr');
+    const t = p.title || {emoji:'',name:'',color:'#888',mult:1};
+    const isCoOwner = t.name === 'Co-Owner';
+    const isOwner = t.name === 'Owner';
+    const titleCell = `<span style="color:${t.color};font-weight:bold">${t.emoji} ${t.name}</span>${t.mult>1?` <span style="color:#888;font-size:.75em">${t.mult}×</span>`:''}`;
+    let titleBtn = '';
+    if (isOwner) titleBtn = '<span style="color:#888;font-size:.7em">(locked)</span>';
+    else if (isCoOwner) titleBtn = `<button class="btn-sm btn-sec" onclick="adminGrantTitle('${p.username}','')">Revoke Co-Owner</button>`;
+    else titleBtn = `<button class="btn-sm btn-gold" onclick="adminGrantTitle('${p.username}','co_owner')">Make Co-Owner</button>`;
     tr.innerHTML = `
-      <td><strong>${p.username}</strong></td>
+      <td><strong>${p.username}</strong><br>${titleCell}</td>
       <td class="pid-tag">${p.player_id}</td>
       <td style="color:#44ff88">${p.wins}</td>
       <td style="color:#ff5555">${p.losses}</td>
       <td style="color:#ffcc44">${p.gems}</td>
-      <td><input class="admin-inp" type="number" id="gem-inp-${p.username}" value="${p.gems}" min="0"/>
-          <button class="btn-sm btn-gold" style="margin-left:4px" onclick="adminSetGems('${p.username}')">Set</button></td>`;
+      <td>
+        <input class="admin-inp" type="number" id="gem-inp-${p.username}" value="${p.gems}" min="0"/>
+        <button class="btn-sm btn-gold" style="margin-left:4px" onclick="adminSetGems('${p.username}')">Set</button>
+        <div style="margin-top:4px">${titleBtn}</div>
+      </td>`;
     tbody.appendChild(tr);
   });
   showScreen('admin-screen');
@@ -1726,6 +1751,9 @@ socket.on('admin_error', d => {
 function adminSetGems(username) {
   const val = document.getElementById(`gem-inp-${username}`).value;
   socket.emit('admin_set_gems', { code: _adminCode, username, amount: parseInt(val) });
+}
+function adminGrantTitle(username, title) {
+  socket.emit('admin_grant_title', { code: _adminCode, username, title });
 }
 socket.on('admin_set_ok', d => {
   document.getElementById('admin-err').textContent = `✓ ${d.username} gems set to ${d.gems}`;

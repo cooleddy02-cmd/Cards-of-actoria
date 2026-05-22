@@ -37,11 +37,45 @@ def _gen_player_id():
     chars = string.ascii_uppercase + string.digits
     return ''.join(random.choices(chars, k=7))
 
-def user_public(u):
+OWNER_USERNAME = 'cy'  # owner is locked to this account
+
+# (label, emoji, color, min_wins, gem_multiplier)
+TITLE_TIERS = [
+    ('Newcomer',   '🌱', '#bbbbbb',   0,   1.0),
+    ('Apprentice', '⚔️', '#88ccff',   5,   1.25),
+    ('Warrior',    '🛡️', '#66ddaa',  15,   1.5),
+    ('Veteran',    '🏆', '#ffcc44',  30,   2.0),
+    ('Champion',   '👑', '#ff9933',  50,   3.0),
+    ('Legend',     '⭐', '#ff44ff', 100,   5.0),
+]
+SPECIAL_TITLES = {
+    'owner':    {'name': 'Owner',    'emoji': '🔱', 'color': '#ff3366', 'mult': 100.0},
+    'co_owner': {'name': 'Co-Owner', 'emoji': '💎', 'color': '#33ddff', 'mult': 100.0},
+}
+
+def get_user_title(u, username=None):
+    """Return {'name','emoji','color','mult','is_special'} for a user."""
+    if username == OWNER_USERNAME:
+        s = SPECIAL_TITLES['owner']
+        return {**s, 'is_special': True}
+    override = u.get('title_override')
+    if override and override in SPECIAL_TITLES:
+        s = SPECIAL_TITLES[override]
+        return {**s, 'is_special': True}
+    wins = u.get('wins', 0)
+    best = TITLE_TIERS[0]
+    for tier in TITLE_TIERS:
+        if wins >= tier[3]:
+            best = tier
+    return {'name': best[0], 'emoji': best[1], 'color': best[2],
+            'mult': best[4], 'is_special': False}
+
+def user_public(u, username=None):
     return {'gems': u['gems'], 'owned_decks': u['owned_decks'],
             'wins': u.get('wins', 0), 'losses': u.get('losses', 0),
             'player_id': u.get('player_id', '???????'),
-            'custom_decks': u.get('custom_decks', [])}
+            'custom_decks': u.get('custom_decks', []),
+            'title': get_user_title(u, username)}
 
 # ═══════════════════════════════════════════════════════════════
 #  CUSTOM DECKS
@@ -779,8 +813,10 @@ def _do_end_turn(room, room_code, pi):
             username = room.get('human_username')
             if username:
                 amt = GEM_REWARDS.get(room.get('bot_difficulty'), 0)
-                _award_gems(username, amt, room.get('bot_difficulty'))
-                socketio.emit('gem_reward', {'amount': amt, 'difficulty': room.get('bot_difficulty')},
+                boosted, total, new_title = _award_gems(username, amt, room.get('bot_difficulty'))
+                socketio.emit('gem_reward', {'amount': boosted, 'base': amt,
+                              'difficulty': room.get('bot_difficulty'),
+                              'total': total, 'title': new_title},
                               to=players[0]['sid'])
         else:
             username = room.get('human_username')
@@ -793,11 +829,17 @@ def _do_end_turn(room, room_code, pi):
         socketio.start_background_task(bot_execute_turn, room_code)
 
 def _award_gems(username, amount, difficulty):
+    """Returns (boosted_amount, new_total_gems, new_title_dict) or (0, 0, None)."""
     users = load_users()
-    if username in users:
-        users[username]['gems'] = users[username].get('gems', 0) + amount
-        users[username]['wins'] = users[username].get('wins', 0) + 1
-        save_users(users)
+    if username not in users:
+        return (0, 0, None)
+    title = get_user_title(users[username], username)
+    boosted = int(round(amount * title['mult']))
+    users[username]['gems'] = users[username].get('gems', 0) + boosted
+    users[username]['wins'] = users[username].get('wins', 0) + 1
+    save_users(users)
+    new_title = get_user_title(users[username], username)
+    return (boosted, users[username]['gems'], new_title)
 
 def _record_loss(username):
     users = load_users()
@@ -853,7 +895,7 @@ def on_register(data):
     }
     save_users(users)
     _bind_sid(username)
-    emit('auth_ok', {'username': username, **user_public(users[username])})
+    emit('auth_ok', {'username': username, **user_public(users[username], username)})
 
 @socketio.on('login')
 def on_login(data):
@@ -867,7 +909,7 @@ def on_login(data):
         users[match]['player_id'] = _gen_player_id()
         save_users(users)
     _bind_sid(match)
-    emit('auth_ok', {'username': match, **user_public(users[match])})
+    emit('auth_ok', {'username': match, **user_public(users[match], match)})
 
 @socketio.on('search_player')
 def on_search_player(data):
@@ -894,10 +936,29 @@ def on_admin_login(data):
     player_list = sorted([
         {'username': k, 'player_id': v.get('player_id','???????'),
          'wins': v.get('wins', 0), 'losses': v.get('losses', 0),
-         'gems': v.get('gems', 0)}
+         'gems': v.get('gems', 0),
+         'title': get_user_title(v, k)}
         for k, v in users.items()
     ], key=lambda x: x['username'].lower())
     emit('admin_ok', {'players': player_list})
+
+@socketio.on('admin_grant_title')
+def on_admin_grant_title(data):
+    if data.get('code') != ADMIN_CODE:
+        emit('admin_error', {'msg': 'Invalid admin code.'}); return
+    username = (data.get('username') or '').strip()
+    title_key = data.get('title')  # 'co_owner' or '' (clear)
+    users = load_users()
+    if username not in users:
+        emit('admin_error', {'msg': f'User "{username}" not found.'}); return
+    if username == OWNER_USERNAME:
+        emit('admin_error', {'msg': "Owner title is locked, can't override."}); return
+    if title_key == 'co_owner':
+        users[username]['title_override'] = 'co_owner'
+    else:
+        users[username].pop('title_override', None)
+    save_users(users)
+    emit('admin_set_ok', {'username': username, 'gems': users[username]['gems']})
 
 @socketio.on('admin_set_gems')
 def on_admin_set_gems(data):
@@ -1117,14 +1178,11 @@ def on_end_turn(data):
             username = room.get('human_username')
             if username:
                 amt = GEM_REWARDS.get(room.get('bot_difficulty'), 0)
-                users = load_users()
-                if username in users:
-                    users[username]['gems'] = users[username].get('gems',0) + amt
-                    users[username]['wins']  = users[username].get('wins',0) + 1
-                    save_users(users)
+                boosted, total, new_title = _award_gems(username, amt, room.get('bot_difficulty'))
                 socketio.emit('gem_reward',
-                    {'amount': amt, 'difficulty': room.get('bot_difficulty'),
-                     'total': users.get(username, {}).get('gems', amt)},
+                    {'amount': boosted, 'base': amt,
+                     'difficulty': room.get('bot_difficulty'),
+                     'total': total, 'title': new_title},
                     to=players[0]['sid'])
 
 @socketio.on('use_ability')
