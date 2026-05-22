@@ -15,5 +15,22 @@
     "wins": 0,
     "losses": 0,
     "player_id": "G3YRHHM"
+  },
+  "Clock": {
+    "pw_hash": "93f39701aba9c7be7860caf1aec7adc453dae61a869bee574920e870e932f2d5",
+    "gems": 108999999850,
+    "owned_decks": [
+      "basic",
+      "brawler",
+      "guardian",
+      "mystic",
+      "chaos",
+      "storm",
+      "dream",
+      "titan"
+    ],
+    "wins": 0,
+    "losses": 0,
+    "player_id": "4OQEVMW"
   }
 }

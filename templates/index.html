@@ -777,8 +777,12 @@ function renderState(s) {
   const inAttack = isMyTurn && s.phase==='attack';
   document.getElementById('btn-end-play').disabled = !inPlay;
   document.getElementById('btn-end-turn').disabled = !inAttack;
-  document.getElementById('btn-direct').disabled =
-    !(inAttack && selectedAttacker!==null && s.opp_field.length===0);
+  const selCard = (inAttack && selectedAttacker!==null) ? s.your_field[selectedAttacker] : null;
+  const canDirect = selCard && (
+    s.opp_field.length === 0 ||
+    (selCard.specials||[]).some(sp => sp.id==='wrath_direct' || sp.id==='amegma_free_attack')
+  );
+  document.getElementById('btn-direct').disabled = !canDirect;
 
   if (s.winner) showWinner(s.winner, s.your_name);
 }
@@ -862,7 +866,6 @@ function endTurn()      { selectedAttacker=null; closeAbility(); socket.emit('en
 function selectAttacker(i) {
   selectedAttacker=i;
   renderState(gameState);
-  document.getElementById('btn-direct').disabled=!(gameState && gameState.opp_field.length===0);
 }
 function attackTarget(ti) {
   if (selectedAttacker===null) return;
