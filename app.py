@@ -53,29 +53,75 @@ SPECIAL_TITLES = {
     'co_owner': {'name': 'Co-Owner', 'emoji': '💎', 'color': '#ff3333', 'mult': 100.0},
 }
 
-def get_user_title(u, username=None):
-    """Return {'name','emoji','color','mult','is_special'} for a user."""
+def _title_from_key(key):
+    """Resolve a title key ('tier_N' / 'owner' / 'co_owner') → title dict, or None."""
+    if key in SPECIAL_TITLES:
+        s = SPECIAL_TITLES[key]
+        return {'key': key, 'name': s['name'], 'emoji': s['emoji'],
+                'color': s['color'], 'mult': s['mult'], 'is_special': True}
+    if isinstance(key, str) and key.startswith('tier_'):
+        try: idx = int(key.split('_')[1])
+        except: return None
+        if 0 <= idx < len(TITLE_TIERS):
+            t = TITLE_TIERS[idx]
+            return {'key': key, 'name': t[0], 'emoji': t[1], 'color': t[2],
+                    'mult': t[4], 'is_special': False}
+    return None
+
+def _is_title_unlocked(u, username, key):
+    """Can this user equip this title?"""
+    if key in SPECIAL_TITLES:
+        if key == 'owner':    return username == OWNER_USERNAME
+        if key == 'co_owner': return username == OWNER_USERNAME or u.get('title_override') == 'co_owner'
+    if isinstance(key, str) and key.startswith('tier_'):
+        try: idx = int(key.split('_')[1])
+        except: return False
+        if 0 <= idx < len(TITLE_TIERS):
+            return u.get('wins', 0) >= TITLE_TIERS[idx][3]
+    return False
+
+def _auto_title(u, username):
+    """Default title (no equip choice): owner > override > highest tier by wins."""
     if username == OWNER_USERNAME:
-        s = SPECIAL_TITLES['owner']
-        return {**s, 'is_special': True}
-    override = u.get('title_override')
-    if override and override in SPECIAL_TITLES:
-        s = SPECIAL_TITLES[override]
-        return {**s, 'is_special': True}
+        return _title_from_key('owner')
+    if u.get('title_override') in SPECIAL_TITLES:
+        return _title_from_key(u['title_override'])
     wins = u.get('wins', 0)
-    best = TITLE_TIERS[0]
-    for tier in TITLE_TIERS:
-        if wins >= tier[3]:
-            best = tier
-    return {'name': best[0], 'emoji': best[1], 'color': best[2],
-            'mult': best[4], 'is_special': False}
+    best_idx = 0
+    for i, tier in enumerate(TITLE_TIERS):
+        if wins >= tier[3]: best_idx = i
+    return _title_from_key(f'tier_{best_idx}')
+
+def get_user_title(u, username=None):
+    """Return active title — equipped if unlocked, otherwise the auto default."""
+    eq = u.get('equipped_title')
+    if eq:
+        t = _title_from_key(eq)
+        if t and _is_title_unlocked(u, username, eq):
+            return t
+    return _auto_title(u, username)
+
+def list_available_titles(u, username):
+    """Return all titles with their unlock status, for the titles screen."""
+    out = []
+    for i, tier in enumerate(TITLE_TIERS):
+        key = f'tier_{i}'
+        out.append({**_title_from_key(key),
+                    'min_wins': tier[3],
+                    'unlocked': u.get('wins', 0) >= tier[3]})
+    for key in ('co_owner', 'owner'):
+        out.append({**_title_from_key(key),
+                    'min_wins': None,
+                    'unlocked': _is_title_unlocked(u, username, key)})
+    return out
 
 def user_public(u, username=None):
     return {'gems': u['gems'], 'owned_decks': u['owned_decks'],
             'wins': u.get('wins', 0), 'losses': u.get('losses', 0),
             'player_id': u.get('player_id', '???????'),
             'custom_decks': u.get('custom_decks', []),
-            'title': get_user_title(u, username)}
+            'title': get_user_title(u, username),
+            'equipped_title': u.get('equipped_title')}
 
 # ═══════════════════════════════════════════════════════════════
 #  CUSTOM DECKS
@@ -490,14 +536,20 @@ def _exec_attack(room, room_code, pi, ai, ti):
                 room['phase'] = 'attack'
                 broadcast_state(room_code); return
 
-    # Direct — only cards with explicit direct-attack ability can target the player
+    # ───── Slot-locked combat ─────
+    # A card in slot N can ONLY hit the opposing slot N. If that slot is empty,
+    # the attack goes through to the player as direct damage (no special ability needed).
+    # Special abilities (Trio, AoE, direct-attack cards) bypass this rule above.
+    if ti is not None and ti != ai:
+        room['message'] = f"⛔ {atk['name']} (slot {ai+1}) can only hit the card in slot {ai+1}."
+        room['phase'] = 'attack'; broadcast_state(room_code); return
     if ti is None:
-        if not _has(atk, 'wrath_direct') and not _has(atk, 'amegma_free_attack'):
-            if dpl['field']:
-                room['message'] = "Can't attack directly — opponent has cards!"
-            else:
-                room['message'] = f"{atk['name']} can't attack the player directly."
-            room['phase'] = 'attack'; broadcast_state(room_code); return
+        # Direct attack — allowed only if the opposing slot is empty,
+        # OR the card has an explicit direct-attack ability (legacy rule).
+        if ai < len(dpl['field']):
+            if not _has(atk, 'wrath_direct') and not _has(atk, 'amegma_free_attack'):
+                room['message'] = f"⛔ Slot {ai+1} is occupied — must attack {dpl['field'][ai]['name']}."
+                room['phase'] = 'attack'; broadcast_state(room_code); return
         dpl['hp'] -= atk['atk']
         msgs.append(f"{atk['name']} deals {atk['atk']} direct damage!")
         if _has(atk, 'hate_selfdmg'): apl['hp'] -= atk['atk']
@@ -651,33 +703,27 @@ def _bot_plays(bot, human, diff):
         return sorted(scored[:min(2, len(scored))], reverse=True)
 
 def _bot_attacks(bot, human, diff):
+    """Slot-locked: card in slot N hits opposing slot N (or player if slot empty).
+    Special-targeting abilities (trio/AoE/direct) are unaffected — _exec_attack handles them."""
     attacks = []
     for ai, card in enumerate(bot['field']):
         if card.get('attacked'): continue
-        if diff == 'easy':
-            if random.random() < 0.6:
-                if human['field']:
-                    attacks.append((ai, random.randint(0, len(human['field'])-1)))
-        elif diff == 'medium':
-            if human['field']:
-                ti = min(range(len(human['field'])), key=lambda i: human['field'][i]['def'])
-                attacks.append((ai, ti))
-            else:
-                attacks.append((ai, None))
+        # Self-damage suicide guard (Hate cards)
+        if _has(card, 'hate_selfdmg') and bot['hp'] <= card['atk']:
+            continue
+        opp_has_card = ai < len(human['field'])
+        # Easy = sometimes skips; medium/hard always swing if possible.
+        if diff == 'easy' and random.random() >= 0.6:
+            continue
+        if opp_has_card:
+            tgt = human['field'][ai]
+            # Hard difficulty: skip if target is guarded and we can't break it
+            if diff == 'hard' and tgt.get('guard_remaining', 0) > 0 and card['atk'] <= tgt['def']:
+                continue
+            attacks.append((ai, ai))
         else:
-            if human['field']:
-                if _has(card, 'hate_selfdmg') and bot['hp'] <= card['atk']:
-                    continue
-                # Kill weakest if possible, else hit strongest threat
-                killable = [i for i,c in enumerate(human['field'])
-                            if c['def'] <= card['atk'] and c.get('guard_remaining',0)==0]
-                if killable:
-                    attacks.append((ai, killable[0]))
-                else:
-                    ti = max(range(len(human['field'])), key=lambda i: human['field'][i]['atk'])
-                    attacks.append((ai, ti))
-            else:
-                attacks.append((ai, None))
+            # Empty opposing slot → slot-lock now allows direct attack on the player
+            attacks.append((ai, None))
     return attacks
 
 def bot_execute_turn(room_code):
@@ -960,6 +1006,43 @@ def on_admin_grant_title(data):
     save_users(users)
     emit('admin_set_ok', {'username': username, 'gems': users[username]['gems']})
 
+@socketio.on('list_titles')
+def on_list_titles(data):
+    username = _auth_user()
+    if not username: emit('titles_error', {'msg': 'Not logged in.'}); return
+    users = load_users()
+    if username not in users: emit('titles_error', {'msg': 'User not found.'}); return
+    u = users[username]
+    emit('titles_list', {
+        'titles': list_available_titles(u, username),
+        'equipped': u.get('equipped_title') or get_user_title(u, username)['key'],
+    })
+
+@socketio.on('equip_title')
+def on_equip_title(data):
+    username = _auth_user()
+    if not username: emit('titles_error', {'msg': 'Not logged in.'}); return
+    key = data.get('title_key') if isinstance(data, dict) else None
+    # Reject non-string/non-null payloads cleanly (no server exception)
+    if key is not None and not isinstance(key, str):
+        emit('titles_error', {'msg': 'Invalid title.'}); return
+    users = load_users()
+    if username not in users: emit('titles_error', {'msg': 'User not found.'}); return
+    u = users[username]
+    if key in (None, '', 'auto'):
+        u.pop('equipped_title', None)
+    else:
+        if not _title_from_key(key):
+            emit('titles_error', {'msg': 'Unknown title.'}); return
+        if not _is_title_unlocked(u, username, key):
+            emit('titles_error', {'msg': 'Title not unlocked.'}); return
+        u['equipped_title'] = key
+    save_users(users)
+    emit('title_equipped', {
+        'title': get_user_title(u, username),
+        'equipped_title': u.get('equipped_title'),
+    })
+
 @socketio.on('admin_set_gems')
 def on_admin_set_gems(data):
     if data.get('code') != ADMIN_CODE:
@@ -1207,12 +1290,13 @@ def on_attack(data):
     if ai >= len(players[pi]['field']): return
     if players[pi]['field'][ai].get('attacked'):
         emit('error_msg', {'msg': 'Already attacked.'}); return
-    # Pull check: if opponent has a pull card active, must target it
+    # Pull check (slot-locked combat): a pull card only forces the attacker
+    # in the SAME slot to target it. Other attackers follow normal slot rules.
     dpl_pull = players[1 - pi]
     pull_fi = next((fi for fi, c in enumerate(dpl_pull['field'])
                     if _has(c, 'atlas_bhh_pull') or _has(c, 'bhole_pull')), None)
-    if pull_fi is not None and ti != pull_fi:
-        emit('error_msg', {'msg': "An enemy pull card forces all attacks toward it!"}); return
+    if pull_fi is not None and pull_fi == ai and ti != pull_fi:
+        emit('error_msg', {'msg': "The pull card in your slot forces you to target it!"}); return
     pending = {'type':'attack','player_index':pi,'attacker_index':ai,'target_index':ti}
     if _defender_has_qe(room):
         _open_hand_trap(room, room_code, pending); return
