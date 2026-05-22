@@ -1,0 +1,16 @@
+.git
+.github
+.local
+.pythonlibs
+.cache
+__pycache__
+*.pyc
+attached_assets
+desktop/release
+desktop/build
+desktop/__pycache__
+desktop/*.spec
+node_modules
+.vscode
+.replit
+replit.nix
