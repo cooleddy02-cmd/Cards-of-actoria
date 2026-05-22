@@ -960,22 +960,21 @@ function startBot() {
 // ═══════════════════════════════════════════════════════
 //  SHOP
 // ═══════════════════════════════════════════════════════
-const DECK_DESCS = {
-  basic:   {icon:'🃏', name:'Starter Deck',  desc:'A balanced mix of all cards. Perfect for learning.'},
-  brawler: {icon:'⚔️', name:'Brawler Deck',  desc:'High-damage cards. Pierce, cleave, and overwhelm.'},
-  guardian:{icon:'🛡️', name:'Guardian Deck', desc:'Defensive powerhouse. Block, regen, and outlast.'},
-  mystic:  {icon:'🔮', name:'Mystic Deck',   desc:'Ability-focused. Trap, reflect, and control the field.'},
-  chaos:   {icon:'🌀', name:'Chaos Deck',    desc:'Unpredictable wildcards. High risk, high reward.'},
-  storm:   {icon:'🌩️', name:'Storm Deck',   desc:'Fast and aggressive. Status effects, pierce, and raw power.'},
-  dream:   {icon:'🌙', name:'Dream Deck',    desc:'Deceptive and punishing. Curses, mirrors, and mind games.'},
-  titan:   {icon:'🏔️', name:'Titan Deck',   desc:'Unstoppable defense. Golem, heavy armor, slow force.'},
-};
-const DECK_COSTS = {basic:0,brawler:15,guardian:15,mystic:20,chaos:25,storm:20,dream:25,titan:30};
+let DECK_CATALOG = [];  // populated from /decks on first shop open
 
-function openShop() {
+async function loadDeckCatalog() {
+  try {
+    const r = await fetch('/decks');
+    const j = await r.json();
+    DECK_CATALOG = j.decks || [];
+  } catch (e) { console.warn('deck catalog fetch failed', e); }
+}
+
+async function openShop() {
   if (!session.username) {
     alert('Log in to access the shop!'); return;
   }
+  if (!DECK_CATALOG.length) await loadDeckCatalog();
   renderShop();
   showScreen('shop-screen');
 }
@@ -985,9 +984,9 @@ function renderShop() {
   document.getElementById('shop-err').textContent = '';
   const grid = document.getElementById('shop-grid');
   grid.innerHTML = '';
-  Object.keys(DECK_DESCS).forEach(id => {
-    const d = DECK_DESCS[id];
-    const cost = DECK_COSTS[id];
+  DECK_CATALOG.forEach(d => {
+    const id = d.id;
+    const cost = d.cost;
     const owned = session.owned_decks.includes(id);
     const canAfford = session.gems >= cost;
     const div = document.createElement('div');
