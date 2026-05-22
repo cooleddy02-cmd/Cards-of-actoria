@@ -1426,13 +1426,13 @@ def on_sacrifice_summon(data):
         if _has(card, 'sword_nosac') and not for_trio: return False
         return True
 
-    # ── Hand-card sacrifice summons (Ace / Lich / Omega / Black Hole) ──
+    # ── Hand-card sacrifice summons (Ace / Lich / Omega / Void Singularity) ──
     if hand_card_idx is not None:
         if hand_card_idx < 0 or hand_card_idx >= len(player['hand']): return
         card_in_hand = player['hand'][hand_card_idx]
         if card_in_hand['name'] != target_name or not card_in_hand.get('no_normal_play'):
             emit('error_msg', {'msg': 'Invalid ritual card.'}); return
-        req = {'Ace': 2, 'Lich': 3, 'Omega': 3, 'Black Hole': 3}.get(target_name)
+        req = {'Ace': 2, 'Lich': 3, 'Omega': 3, 'Void Singularity': 3}.get(target_name)
         if req is None:
             emit('error_msg', {'msg': 'Unknown ritual card.'}); return
         if len(field_sacs) != req:

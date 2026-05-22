@@ -112,7 +112,7 @@ CARDLIST = [
         {"id":"omega_sac","name":"Sacrifice Summon","desc":"Summon by sacrificing 3 cards from your field. Cannot be played normally."},
         {"id":"omega_end_dmg","name":"Omega Pulse","desc":"Each of your turns: deals 1 damage to the opponent."},
         {"id":"omega_atk_lock","name":"Absolute Force","desc":"ATK cannot go below its base amount."}]},
-    {"name":"Black Hole", "atk":0,"def":15, "no_normal_play":True, "specials":[
+    {"name":"Void Singularity", "atk":0,"def":15, "no_normal_play":True, "specials":[
         {"id":"bhole_sac","name":"Sacrifice Summon","desc":"Summon by sacrificing 3 cards from your field. Cannot be played normally."},
         {"id":"bhole_pull","name":"Void Pull","desc":"Enemy cards can only attack this card."},
         {"id":"bhole_atlas_summon","name":"Atlas Summon","desc":"Once per turn: summon Atlas BHH to your field, lose 4 HP."}]},
