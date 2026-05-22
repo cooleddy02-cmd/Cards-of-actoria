@@ -312,9 +312,24 @@
     <span class="icon">🎁</span>
     <div class="info"><h3>Gift Gems</h3><p>Send gems to another player by their ID</p></div>
   </button>
+  <button class="menu-btn" id="menu-titles-btn" onclick="openTitlesScreen()">
+    <span class="icon">🏷️</span>
+    <div class="info"><h3>Titles</h3><p>View your unlocked titles and equip one to show off</p></div>
+  </button>
   <div style="text-align:center;margin-top:-4px">
     <button class="btn-sec btn-sm" onclick="openAdminPrompt()">⚙️ Admin</button>
   </div>
+</div>
+
+<!-- ═══ TITLES SCREEN ═══ -->
+<div class="screen" id="titles-screen" style="max-width:680px">
+  <button class="btn-sec btn-sm" style="align-self:flex-start" onclick="showScreen('menu-screen')">← Back</button>
+  <h2 style="margin:6px 0 2px">🏷️ Titles</h2>
+  <p style="color:#888;font-size:.85rem;margin:0 0 10px">
+    Earn titles by winning matches. Equip one to show it on your name — and unlock its <b>gem bonus</b> on every bot-win reward.
+  </p>
+  <p class="err" id="titles-err"></p>
+  <div id="titles-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px"></div>
 </div>
 
 <!-- ═══ ONLINE LOBBY ═══ -->
@@ -1823,6 +1838,48 @@ socket.on('admin_ok', d => {
 socket.on('admin_error', d => {
   document.getElementById('admin-code-err').textContent = d.msg;
   document.getElementById('admin-err').textContent = d.msg;
+});
+function openTitlesScreen() {
+  document.getElementById('titles-err').textContent = '';
+  document.getElementById('titles-grid').innerHTML = '<p style="color:#888">Loading…</p>';
+  socket.emit('list_titles', {});
+  showScreen('titles-screen');
+}
+socket.on('titles_error', d => { document.getElementById('titles-err').textContent = d.msg; });
+socket.on('titles_list', d => {
+  const grid = document.getElementById('titles-grid'); grid.innerHTML = '';
+  d.titles.forEach(t => {
+    const isEquipped = d.equipped === t.key;
+    const card = document.createElement('div');
+    card.style.cssText = `padding:12px;border-radius:10px;border:2px solid ${isEquipped?t.color:'#333'};background:${t.unlocked?'#161616':'#0c0c0c'};opacity:${t.unlocked?1:0.5};display:flex;flex-direction:column;gap:6px;text-align:center;${isEquipped?`box-shadow:0 0 12px ${t.color}66`:''}`;
+    const big = document.createElement('div');
+    big.style.cssText = `font-size:2.2rem;line-height:1`; big.textContent = t.emoji;
+    const name = document.createElement('div');
+    name.style.cssText = `font-weight:bold;color:${t.color};font-size:1rem`;
+    name.textContent = t.name;
+    const mult = document.createElement('div');
+    mult.style.cssText = 'color:#ffcc44;font-size:.8rem'; mult.textContent = `${t.mult}× gems`;
+    const req = document.createElement('div');
+    req.style.cssText = 'color:#777;font-size:.7rem';
+    if (t.key === 'owner')         req.textContent = 'Locked to cynirz';
+    else if (t.key === 'co_owner') req.textContent = t.unlocked ? 'Granted by admin' : 'Granted by admin';
+    else                           req.textContent = t.unlocked ? `Unlocked (${t.min_wins}+ wins)` : `Reach ${t.min_wins} wins`;
+    const btn = document.createElement('button');
+    btn.className = 'btn-sm ' + (isEquipped ? 'btn-sec' : 'btn-gold');
+    btn.style.marginTop = '4px';
+    btn.textContent = isEquipped ? '✓ Equipped' : (t.unlocked ? 'Equip' : '🔒 Locked');
+    btn.disabled = !t.unlocked || isEquipped;
+    btn.addEventListener('click', () => socket.emit('equip_title', {title_key: t.key}));
+    card.appendChild(big); card.appendChild(name); card.appendChild(mult);
+    card.appendChild(req); card.appendChild(btn);
+    grid.appendChild(card);
+  });
+});
+socket.on('title_equipped', d => {
+  session.title = d.title;
+  session.equipped_title = d.equipped_title;
+  renderMenuProfile();
+  openTitlesScreen();
 });
 socket.on('force_relogin', d => {
   alert(d && d.reason === 'deleted'
