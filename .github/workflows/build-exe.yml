@@ -1,0 +1,57 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/build-exe.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Build executable
+        run: |
+          pyinstaller --noconfirm --onefile --windowed `
+            --name "CardsOfFactoria" `
+            --icon "icon.ico" `
+            main.py
+
+      - name: Stage release files
+        run: |
+          mkdir release
+          copy dist\CardsOfFactoria.exe release\
+          copy config.json release\
+          copy README.md release\ 2>$null
+        shell: pwsh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CardsOfFactoria-Windows
+          path: desktop/release/
+
+      - name: Create GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            desktop/release/CardsOfFactoria.exe
+            desktop/release/config.json
