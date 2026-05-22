@@ -123,19 +123,15 @@ def seed_if_empty():
 
 def load_users():
     if using_postgres():
-        try:
-            data = _pg_get(_USERS_KEY)
-            return data if isinstance(data, dict) else {}
-        except Exception as e:
-            print(f"[db] load_users falling back to file: {e}")
+        # No silent fallback — local file on a stateless host would diverge from DB.
+        data = _pg_get(_USERS_KEY)
+        return data if isinstance(data, dict) else {}
     return _file_load()
 
 
 def save_users(users):
     if using_postgres():
-        try:
-            _pg_set(_USERS_KEY, users)
-            return
-        except Exception as e:
-            print(f"[db] save_users falling back to file: {e}")
+        # Raise loudly on DB failure rather than writing to ephemeral local FS.
+        _pg_set(_USERS_KEY, users)
+        return
     _file_save(users)
