@@ -183,6 +183,7 @@ def _buff_atk(card, amount):
         card['atk'] = max(card['atk'], card['base_atk'])
 
 def _is_dead(card):
+    if card is None: return False
     if card.get('base_def', 1) == 0:
         return card['def'] < 0
     return card['def'] <= 0
@@ -206,12 +207,35 @@ def deal_hand(deck_type='basic', k=5):
     return [draw_from_deck(deck_type) for _ in range(k)]
 
 def _has(card, sid):
+    if card is None: return False
     return any(s['id'] == sid for s in card.get('specials', []))
 
 def _has_eff(card, sid):
+    if card is None: return False
     if card.get('emp_turns', 0) > 0:
         return False
     return _has(card, sid)
+
+# ─── Slot-persistent field helpers ───
+# Field is a list of up to 4 entries; destroyed cards become None
+# (the slot is preserved so survivors don't shift left).
+def _add_to_field(field, card):
+    """Place card in leftmost empty (None) slot; append if field has < 4 entries.
+    Returns slot index or -1 if 4 slots are already occupied."""
+    for i in range(len(field)):
+        if field[i] is None:
+            field[i] = card
+            return i
+    if len(field) < 4:
+        field.append(card)
+        return len(field) - 1
+    return -1
+
+def _live_count(field):
+    return sum(1 for c in field if c is not None)
+
+def _field_full(field):
+    return _live_count(field) >= 4
 
 def _find_by_uid(players, uid):
     for pi, p in enumerate(players):
