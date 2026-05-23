@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room as sio_join_room, join_room, leave_room
-import random, string, copy, uuid, json, hashlib, os, re
+import random, string, copy, uuid, json, hashlib, os, re, time
 from cards import (CARDLIST, SPECIAL_CARDS, ALL_CARDS,
                    DECK_WEIGHTS, DECK_INFO, GEM_REWARDS, BOT_NAMES, BOT_DECKS)
 from cards import DECK_POOLS
