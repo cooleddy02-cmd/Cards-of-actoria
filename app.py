@@ -350,8 +350,9 @@ def _check_win(room, players):
         if p['hp'] <= 0:
             p['hp'] = 0
             if not room.get('winner'):
-                room['winner'] = players[1 - i]['name']
-                room['state']  = 'finished'
+                room['winner']       = players[1 - i]['name']
+                room['winner_index'] = 1 - i
+                room['state']        = 'finished'
                 _maybe_award_bot_gems(room)
                 _record_match_result(room)
 
@@ -365,7 +366,9 @@ def _maybe_award_bot_gems(room):
     if not username: return
     room['gems_awarded'] = True
     human_name = players[0]['name']
-    if room['winner'] == human_name:
+    human_deck = (room.get('player_deck') or {}).get(0)
+    won = (room['winner'] == human_name)
+    if won:
         amt = GEM_REWARDS.get(room.get('bot_difficulty'), 0)
         boosted, total, new_title = _award_gems(username, amt, room.get('bot_difficulty'))
         socketio.emit('gem_reward',
@@ -375,6 +378,7 @@ def _maybe_award_bot_gems(room):
             to=players[0]['sid'])
     else:
         _record_loss(username)
+    _record_deck_result(username, human_deck, won)
 
 # ═══════════════════════════════════════════════════════════════
 #  TURN EFFECTS
@@ -694,13 +698,26 @@ def _exec_attack(room, room_code, pi, ai, ti):
 def _exec_play_card(room, room_code, pi, ci, slot_index=None):
     player = room['players'][pi]
     if ci >= len(player['hand']): return
-    card = player['hand'].pop(ci)
+    card = player['hand'][ci]  # peek; don't pop until placement succeeds
+    # If user asked for a specific slot that's now occupied, abort cleanly
+    if (slot_index is not None and 0 <= slot_index < 4
+        and slot_index < len(player['field'])
+        and player['field'][slot_index] is not None):
+        socketio.emit('error_msg', {'msg': f'Slot {slot_index+1} just filled — pick another.'},
+                      to=player['sid'])
+        broadcast_state(room_code); return
+    # Stage card (only mutate state we can roll back)
     card['attacked'] = False; card['turns_on_field'] = 0
     if _has(card, 'v18_reroll'):
         card['atk'] = random.randint(0, 8)
     placed = _add_to_field(player['field'], card, slot=slot_index)
+    if placed < 0:
+        socketio.emit('error_msg', {'msg': 'Field is full.'}, to=player['sid'])
+        broadcast_state(room_code); return
+    # Commit: remove from hand & charge a play
+    player['hand'].pop(ci)
     room['cards_played'] += 1
-    slot_label = f" → slot {placed+1}" if placed >= 0 else ""
+    slot_label = f" → slot {placed+1}"
     room['message'] = f"{player['name']} played {card['name']}{slot_label}."
     room['phase'] = 'play'
     broadcast_state(room_code)
@@ -974,17 +991,24 @@ def _record_deck_result(username, deck, won):
 
 def _record_match_result(room):
     """Record W/L + per-deck stats for the winner/loser of a finished room.
-    Idempotent via room['result_recorded']. Skips bot games (handled by _maybe_award_bot_gems)."""
+    Idempotent via room['result_recorded']. Skips bot games (handled by _maybe_award_bot_gems).
+    Uses room['winner_index'] (immutable seat index) — falls back to name match for legacy."""
     if not room.get('winner') or room.get('result_recorded'): return
     if room.get('is_bot'): return
     players = room.get('players') or []
     if len(players) < 2: return
     decks = room.get('player_deck') or {}
-    winner_name = room['winner']
+    win_idx = room.get('winner_index')
+    if win_idx is None:
+        # legacy fallback
+        for i, p in enumerate(players):
+            if p['name'] == room['winner']:
+                win_idx = i; break
+    if win_idx is None: return
     for i, p in enumerate(players):
         username = p.get('username')
         if not username: continue
-        won = (p['name'] == winner_name)
+        won = (i == win_idx)
         users = load_users()
         if username in users:
             key = 'wins' if won else 'losses'
@@ -1292,7 +1316,7 @@ def on_buy_deck(data):
 def on_create_room(data):
     name     = data.get('name','Player').strip() or 'Player'
     deck     = data.get('deck', 'basic')
-    username = data.get('username')
+    username = _auth_user()  # server-trusted; ignore client payload
     code     = make_room_code()
     room     = new_room()
     users    = load_users()
@@ -1320,7 +1344,7 @@ def on_join_game(data):
         emit('room_error', {'msg': 'Room is full.'}); return
     if room['state'] != 'waiting':
         emit('room_error', {'msg': 'Game already started.'}); return
-    username2 = data.get('username')
+    username2 = _auth_user()  # server-trusted; ignore client payload
     users2    = load_users()
     pid2      = users2.get(username2, {}).get('player_id') if username2 else None
     room['players'].append({
@@ -1347,7 +1371,7 @@ def on_start_bot_game(data):
     name       = data.get('name','Player').strip() or 'Player'
     difficulty = data.get('difficulty', 'easy')
     deck       = data.get('deck', 'basic')
-    username   = data.get('username')
+    username   = _auth_user()  # server-trusted; ignore client payload
     from cards import BOT_NAMES, BOT_DECKS
     bot_name   = BOT_NAMES.get(difficulty, 'Bot 🤖')
     bot_deck   = BOT_DECKS.get(difficulty, 'basic')
@@ -2185,24 +2209,30 @@ def on_get_leaderboard(data=None):
 # ─── MATCHMAKING ───
 mm_queue = []        # list of {sid, name, username, deck, joined_ts}
 _pair_times = []     # rolling list of recent wait times in seconds
+_mm_lock = threading.RLock()
 
 def _broadcast_mm_status():
     """Send queue size + ETA estimate to everyone currently queued."""
-    avg = (sum(_pair_times) / len(_pair_times)) if _pair_times else 15
-    eta = max(3, int(avg))
-    payload = {'queue_size': len(mm_queue), 'eta_seconds': eta}
-    for entry in mm_queue:
-        socketio.emit('mm_status', payload, to=entry['sid'])
+    with _mm_lock:
+        avg = (sum(_pair_times) / len(_pair_times)) if _pair_times else 15
+        eta = max(3, int(avg))
+        payload = {'queue_size': len(mm_queue), 'eta_seconds': eta}
+        sids = [e['sid'] for e in mm_queue]
+    for sid in sids:
+        socketio.emit('mm_status', payload, to=sid)
 
 def _try_pair():
     """If two players are queued, pair them into a fresh PvP room."""
-    while len(mm_queue) >= 2:
-        a = mm_queue.pop(0)
-        b = mm_queue.pop(0)
+    while True:
+        with _mm_lock:
+            if len(mm_queue) < 2: break
+            a = mm_queue.pop(0)
+            b = mm_queue.pop(0)
         wait_a = time.time() - a['joined_ts']
         wait_b = time.time() - b['joined_ts']
-        _pair_times.append((wait_a + wait_b) / 2)
-        if len(_pair_times) > 20: del _pair_times[:len(_pair_times) - 20]
+        with _mm_lock:
+            _pair_times.append((wait_a + wait_b) / 2)
+            if len(_pair_times) > 20: del _pair_times[:len(_pair_times) - 20]
         code = make_room_code()
         room = new_room()
         users = load_users()
@@ -2230,22 +2260,37 @@ def _try_pair():
         broadcast_state(code)
     _broadcast_mm_status()
 
+_BUILTIN_DECK_IDS = {d['id'] for d in DECK_INFO if isinstance(d, dict) and 'id' in d}
+def _valid_deck(deck, username):
+    """Allow built-in deck ids or custom decks the user actually owns."""
+    if not deck: return False
+    if deck in _BUILTIN_DECK_IDS: return True
+    users = load_users()
+    owned = (users.get(username) or {}).get('owned_decks') or []
+    return deck in owned
+
 @socketio.on('mm_join')
 def on_mm_join(data):
     sid = request.sid
-    # Remove any prior queue entry for this sid
-    mm_queue[:] = [e for e in mm_queue if e['sid'] != sid]
+    username = _auth_user()  # server-trusted; required for stat recording
+    if not username:
+        emit('error_msg', {'msg': 'Please log in to use matchmaking.'}); return
     name = (data.get('name') or 'Player').strip()[:20] or 'Player'
     deck = data.get('deck', 'basic')
-    username = data.get('username')
-    mm_queue.append({'sid': sid, 'name': name, 'username': username,
-                     'deck': deck, 'joined_ts': time.time()})
+    if not _valid_deck(deck, username):
+        deck = 'basic'
+    with _mm_lock:
+        # Remove any prior queue entry for this sid
+        mm_queue[:] = [e for e in mm_queue if e['sid'] != sid]
+        mm_queue.append({'sid': sid, 'name': name, 'username': username,
+                         'deck': deck, 'joined_ts': time.time()})
     _try_pair()
 
 @socketio.on('mm_leave')
 def on_mm_leave(data=None):
     sid = request.sid
-    mm_queue[:] = [e for e in mm_queue if e['sid'] != sid]
+    with _mm_lock:
+        mm_queue[:] = [e for e in mm_queue if e['sid'] != sid]
     _broadcast_mm_status()
     emit('mm_left', {})
 
@@ -2458,7 +2503,8 @@ def on_disconnect():
     # Drop from matchmaking queue if present
     try:
         sid = request.sid
-        mm_queue[:] = [e for e in mm_queue if e['sid'] != sid]
+        with _mm_lock:
+            mm_queue[:] = [e for e in mm_queue if e['sid'] != sid]
         _broadcast_mm_status()
     except Exception:
         pass
