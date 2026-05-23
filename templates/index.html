@@ -1338,9 +1338,9 @@ function renderState(s) {
   document.getElementById('btn-end-turn').disabled = !inAttack;
   document.getElementById('btn-spec-summon').disabled = !(inPlay && s.cards_played < 2);
   const selCard = (inAttack && selectedAttacker!==null) ? s.your_field[selectedAttacker] : null;
-  const canDirect = selCard && (
-    s.opp_field.length === 0 ||
-    (selCard.specials||[]).some(sp => sp.id==='wrath_direct' || sp.id==='amegma_free_attack')
+  // Direct attack requires an explicit direct-attack ability — empty opposing slot does NOT enable it.
+  const canDirect = !!selCard && (selCard.specials||[]).some(
+    sp => sp.id==='wrath_direct' || sp.id==='amegma_free_attack'
   );
   document.getElementById('btn-direct').disabled = !canDirect;
 
@@ -1372,9 +1372,17 @@ function cardInnerHTML(c) {
   return `<div class="cname">${c.name}</div><div class="slabel">ATK / DEF</div><div class="cstats">${c.atk} / ${defDisp}</div>${badgesHTML(c)}${specTagsHTML(c)}`;
 }
 
+function emptySlotDiv(label) {
+  const ph = document.createElement('div');
+  ph.className = 'card-slot empty-slot';
+  ph.style.cssText = 'opacity:.25;border-style:dashed;cursor:default;background:#0a0a0a';
+  ph.innerHTML = `<div class="slabel">${label||'empty'}</div>`;
+  return ph;
+}
 function renderOppField(field, phase, isMyTurn) {
   const el=document.getElementById('opp-field'); el.innerHTML='';
   field.forEach((card,i) => {
+    if (!card) { el.appendChild(emptySlotDiv('— slot ' + (i+1) + ' —')); return; }
     const canTarget = isMyTurn && phase==='attack' && selectedAttacker!==null;
     const isAbTarget = abilityMode && (abilityMode.target_pool==='opp' || abilityMode.target_pool==='all');
     const div=document.createElement('div');
@@ -1390,6 +1398,7 @@ function renderOppField(field, phase, isMyTurn) {
 function renderYourField(field, phase, isMyTurn) {
   const el=document.getElementById('your-field'); el.innerHTML='';
   field.forEach((card,i) => {
+    if (!card) { el.appendChild(emptySlotDiv('— slot ' + (i+1) + ' —')); return; }
     const canSel=isMyTurn && phase==='attack' && !card.attacked;
     const isSel=selectedAttacker===i;
     const isAbTarget=abilityMode && (abilityMode.target_pool==='your_field' || abilityMode.target_pool==='all');
