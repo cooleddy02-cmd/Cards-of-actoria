@@ -402,10 +402,11 @@ def process_turn_start(room, room_code, active_index):
         if _has(card, 'greed_decay') and not greed_decay_done:
             for c in active['field']:
                 if c is None: continue
+                if _has(c, 'greed_decay'): continue  # Greed is immune to its own decay
                 if not _has(c, 'duraza_def_lock'):
                     c['def'] = max(c['def'] - 1, -5)
             greed_decay_done = True
-            msgs.append(f"💀 Greed Decay: all cards -1 DEF!")
+            msgs.append(f"💀 Greed Decay: other cards -1 DEF!")
 
         if _has(card, 'golem_regen') and not card.get('flipped'):
             card['def'] += 5
@@ -833,6 +834,13 @@ def bot_execute_turn(room_code):
 def broadcast_state(room_code):
     room = rooms.get(room_code)
     if not room or len(room['players']) < 2: return
+    # Rolling event-history: keep last 8 distinct messages
+    msg = room.get('message') or ''
+    hist = room.setdefault('history', [])
+    if msg and (not hist or hist[-1] != msg):
+        hist.append(msg)
+        if len(hist) > 8: del hist[:len(hist) - 8]
+    chat = room.setdefault('chat', [])
     players = room['players']
     for i, player in enumerate(players):
         if player['sid'] == 'BOT': continue
@@ -840,6 +848,8 @@ def broadcast_state(room_code):
         is_ht = room['phase'] == 'hand_trap_window' and room['current_turn'] != i
         gem_reward = GEM_REWARDS.get(room.get('bot_difficulty'), 0) if room.get('is_bot') else 0
         socketio.emit('state_update', {
+            'history':          hist,
+            'chat':             chat,
             'your_index':       i,
             'your_name':        player['name'],
             'opp_name':         opp['name'],
@@ -1675,8 +1685,10 @@ def on_sacrifice_summon(data):
         emit('error_msg', {'msg': 'Already played 2 cards this turn.'}); return
 
     player = players[pi]
-    if _field_full(player['field']):
-        emit('error_msg', {'msg': 'Field is full (max 4).'}); return
+    # Compute post-sacrifice live count: the sacrificed slots will be freed,
+    # so we allow ritual summons even when the field is currently full.
+    if _live_count(player['field']) - len(set(field_sacs)) >= 4:
+        emit('error_msg', {'msg': 'Field is full (max 4) — sacrifice more cards.'}); return
     if any(i < 0 or i >= len(player['field']) or player['field'][i] is None for i in field_sacs):
         emit('error_msg', {'msg': 'Invalid field sacrifice.'}); return
     if any(i < 0 or i >= len(player['hand']) for i in hand_sacs):
@@ -1723,8 +1735,9 @@ def on_sacrifice_summon(data):
         sword_fi = next((fi for fi in field_sacs if player['field'][fi]['name'] == 'Sword'), None)
         if sword_fi is None:
             emit('error_msg', {'msg': 'Must include Sword in sacrifice.'}); return
+        # for_trio=True so additional Sword cards in the sac list are also allowed
         for fi in field_sacs:
-            if fi != sword_fi and not _can_sac(player['field'][fi], for_trio=False):
+            if fi != sword_fi and not _can_sac(player['field'][fi], for_trio=True):
                 emit('error_msg', {'msg': f"{player['field'][fi]['name']} cannot be sacrificed."}); return
 
     elif target_name == 'The Star':
@@ -2076,6 +2089,28 @@ def _remove_from_table(sid, code=None):
             _table_emit(c)
 
 # ── GEM GIFTING ──
+@socketio.on('chat_msg')
+def on_chat_msg(data):
+    room_code = data.get('room')
+    text = (data.get('text') or '').strip()[:200]
+    if not text: return
+    room = rooms.get(room_code)
+    if not room: return
+    pi = next((i for i,p in enumerate(room['players']) if p['sid']==request.sid), None)
+    if pi is None: return
+    sender = room['players'][pi]['name']
+    room.setdefault('chat', []).append({'sender': sender, 'text': text, 'ts': int(time.time())})
+    if len(room['chat']) > 30: room['chat'] = room['chat'][-30:]
+    # If it's a bot game, have the bot respond with a canned reply
+    if room.get('is_bot'):
+        bot_lines = ["Nice move!", "Hmm…", "You'll regret that.", "Try harder!",
+                     "I've seen better.", "Almost.", "Brave choice.", "GG so far."]
+        room['chat'].append({'sender': room['players'][1]['name'], 'text': random.choice(bot_lines), 'ts': int(time.time())})
+        if len(room['chat']) > 30: room['chat'] = room['chat'][-30:]
+    for p in room['players']:
+        if p['sid'] != 'BOT':
+            socketio.emit('chat_update', {'chat': room['chat']}, to=p['sid'])
+
 @socketio.on('send_gems')
 def on_send_gems(data):
     if not isinstance(data, dict): data = {}
