@@ -1729,7 +1729,10 @@ socket.on('mm_left',    () => {});
 
 function toggleSidePanel(){
   const p = document.getElementById('side-panel');
-  p.style.left = (p.style.left === '0px') ? '-340px' : '0px';
+  const t = document.getElementById('side-toggle');
+  const opening = (p.style.left !== '0px');
+  p.style.left = opening ? '0px' : '-340px';
+  if (t) t.style.display = opening ? 'none' : 'block';
 }
 function renderHistory(hist){
   const ul = document.getElementById('history-list'); if (!ul) return;
