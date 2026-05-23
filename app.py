@@ -443,7 +443,7 @@ def process_turn_start(room, room_code, active_index):
             fi = active['field'].index(card)
             if fi < len(opp['field']):
                 ec = opp['field'][fi]
-                if ec.get('guard_remaining', 0) == 0 and not _has(ec, 'aoe_immune'):
+                if ec is not None and ec.get('guard_remaining', 0) == 0 and not _has(ec, 'aoe_immune'):
                     ec['def'] -= 2
                     msgs.append(f"⭐ The Star burns {ec['name']} -2 DEF!")
 
@@ -1399,7 +1399,7 @@ def on_use_ability(data):
     player = players[pi]; opp = players[1-pi]
 
     if ability_id == 'rewind_quick':
-        rfi = next((i for i,c in enumerate(player['field']) if c.get('uid')==card_uid and _has(c,'rewind_quick')), None)
+        rfi = next((i for i,c in enumerate(player['field']) if c is not None and c.get('uid')==card_uid and _has(c,'rewind_quick')), None)
         if rfi is None: emit('error_msg',{'msg':'Rewind not on your field.'}); return
         rc = player['field'][rfi]
         if rc.get('frozen'): emit('error_msg',{'msg':'Frozen.'}); return
@@ -1463,7 +1463,7 @@ def on_use_ability(data):
         broadcast_state(room_code)
 
     elif ability_id == 'milk_drink':
-        if not any(c['name']=='Clocksmilk' for c in player['field']):
+        if not any(c is not None and c['name']=='Clocksmilk' for c in player['field']):
             emit('error_msg',{'msg':"Clock's Milk must be alive."}); return
         t_pi,t_fi,t_card = _find_by_uid(players, target_uid)
         if t_pi != pi or t_card['name'] != 'Milktoken': return
