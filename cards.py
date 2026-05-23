@@ -64,7 +64,7 @@ CARDLIST = [
     {"name":"Rewind",       "atk":0,"def":0, "specials":[
         {"id":"rewind_quick","name":"Time Steal","desc":"Quick effect: destroy to take your turn. Take 3 damage, can't draw/deal damage. Once per 2 turns."},
         {"id":"rewind_play","name":"Rewind","desc":"On play: revive last friendly dead card with +2 DEF. Destroyed after 3 turns."}]},
-    {"name":"Undying",      "atk":0,"def":-1, "specials":[
+    {"name":"Undying",      "atk":0,"def":1, "specials":[
         {"id":"undying_donut","name":"Donut","desc":"Each turn: give a friendly card +1/+1 (max 2 donuts per card)."}]},
     {"name":"Fisher",       "atk":0,"def":3, "specials":[
         {"id":"fisher_pull","name":"Abyssal Pull","desc":"Once per turn: flip coin. Heads=Light Fish, Tails=Dark Fish."},
