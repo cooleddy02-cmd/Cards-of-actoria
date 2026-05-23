@@ -219,9 +219,17 @@ def _has_eff(card, sid):
 # ─── Slot-persistent field helpers ───
 # Field is a list of up to 4 entries; destroyed cards become None
 # (the slot is preserved so survivors don't shift left).
-def _add_to_field(field, card):
-    """Place card in leftmost empty (None) slot; append if field has < 4 entries.
-    Returns slot index or -1 if 4 slots are already occupied."""
+def _add_to_field(field, card, slot=None):
+    """Place card in the requested slot (if provided and free), otherwise the leftmost
+    empty (None) slot; append if field has < 4 entries.
+    Returns slot index or -1 if 4 slots are already occupied / requested slot is taken."""
+    if slot is not None and isinstance(slot, int) and 0 <= slot < 4:
+        while len(field) <= slot:
+            field.append(None)
+        if field[slot] is None:
+            field[slot] = card
+            return slot
+        # requested slot taken — fall through to leftmost fill
     for i in range(len(field)):
         if field[i] is None:
             field[i] = card
@@ -345,6 +353,7 @@ def _check_win(room, players):
                 room['winner'] = players[1 - i]['name']
                 room['state']  = 'finished'
                 _maybe_award_bot_gems(room)
+                _record_match_result(room)
 
 def _maybe_award_bot_gems(room):
     """Idempotently award gems (or record loss) when a bot game ends."""
@@ -682,16 +691,17 @@ def _exec_attack(room, room_code, pi, ai, ti):
     room['message'] = ' | '.join(msgs[:5]); room['phase'] = 'attack'
     broadcast_state(room_code)
 
-def _exec_play_card(room, room_code, pi, ci):
+def _exec_play_card(room, room_code, pi, ci, slot_index=None):
     player = room['players'][pi]
     if ci >= len(player['hand']): return
     card = player['hand'].pop(ci)
     card['attacked'] = False; card['turns_on_field'] = 0
     if _has(card, 'v18_reroll'):
         card['atk'] = random.randint(0, 8)
-    _add_to_field(player['field'], card)
+    placed = _add_to_field(player['field'], card, slot=slot_index)
     room['cards_played'] += 1
-    room['message'] = f"{player['name']} played {card['name']}."
+    slot_label = f" → slot {placed+1}" if placed >= 0 else ""
+    room['message'] = f"{player['name']} played {card['name']}{slot_label}."
     room['phase'] = 'play'
     broadcast_state(room_code)
 
@@ -950,6 +960,70 @@ def _record_loss(username):
     if username in users:
         users[username]['losses'] = users[username].get('losses', 0) + 1
         save_users(users)
+
+def _record_deck_result(username, deck, won):
+    """Track per-deck wins/losses on the user record."""
+    if not username or not deck: return
+    users = load_users()
+    if username not in users: return
+    stats = users[username].setdefault('deck_stats', {})
+    s = stats.setdefault(deck, {'wins': 0, 'losses': 0})
+    if won: s['wins'] += 1
+    else:    s['losses'] += 1
+    save_users(users)
+
+def _record_match_result(room):
+    """Record W/L + per-deck stats for the winner/loser of a finished room.
+    Idempotent via room['result_recorded']. Skips bot games (handled by _maybe_award_bot_gems)."""
+    if not room.get('winner') or room.get('result_recorded'): return
+    if room.get('is_bot'): return
+    players = room.get('players') or []
+    if len(players) < 2: return
+    decks = room.get('player_deck') or {}
+    winner_name = room['winner']
+    for i, p in enumerate(players):
+        username = p.get('username')
+        if not username: continue
+        won = (p['name'] == winner_name)
+        users = load_users()
+        if username in users:
+            key = 'wins' if won else 'losses'
+            users[username][key] = users[username].get(key, 0) + 1
+            save_users(users)
+        _record_deck_result(username, decks.get(i), won)
+    room['result_recorded'] = True
+
+def get_leaderboard_data(limit=10):
+    """Returns dict with 'players' (top by wins) and 'decks' (aggregated win-rate)."""
+    users = load_users()
+    rows = []
+    deck_agg = {}  # deck -> {wins, losses, plays}
+    for uname, u in users.items():
+        wins = int(u.get('wins', 0)); losses = int(u.get('losses', 0))
+        if wins + losses == 0: continue
+        rate = wins / (wins + losses)
+        rows.append({
+            'username': uname,
+            'player_id': u.get('player_id', ''),
+            'wins': wins, 'losses': losses,
+            'win_rate': round(rate * 100, 1),
+            'gems': int(u.get('gems', 0)),
+        })
+        for deck, s in (u.get('deck_stats') or {}).items():
+            a = deck_agg.setdefault(deck, {'wins': 0, 'losses': 0})
+            a['wins']   += int(s.get('wins', 0))
+            a['losses'] += int(s.get('losses', 0))
+    rows.sort(key=lambda r: (-r['wins'], -r['win_rate']))
+    decks = []
+    for d, a in deck_agg.items():
+        total = a['wins'] + a['losses']
+        if total < 3: continue  # ignore tiny samples
+        decks.append({
+            'deck': d, 'wins': a['wins'], 'losses': a['losses'],
+            'plays': total, 'win_rate': round(a['wins']/total*100, 1)
+        })
+    decks.sort(key=lambda r: (-r['win_rate'], -r['plays']))
+    return {'players': rows[:limit], 'decks': decks[:limit]}
 
 # ═══════════════════════════════════════════════════════════════
 #  ROUTES
@@ -1225,6 +1299,7 @@ def on_create_room(data):
     pid      = users.get(username, {}).get('player_id') if username else None
     room['players'].append({
         'sid': request.sid, 'name': name, 'player_id': pid,
+        'username': username,
         'hand': deal_hand(deck), 'field': [], 'hp': 20
     })
     room['player_deck']     = {0: deck}
@@ -1250,6 +1325,7 @@ def on_join_game(data):
     pid2      = users2.get(username2, {}).get('player_id') if username2 else None
     room['players'].append({
         'sid': request.sid, 'name': name, 'player_id': pid2,
+        'username': username2,
         'hand': deal_hand(deck), 'field': [], 'hp': 20
     })
     room.setdefault('player_deck', {})[1] = deck
@@ -1281,7 +1357,7 @@ def on_start_bot_game(data):
     room['bot_difficulty']   = difficulty
     room['human_username']   = username
     room['players'] = [
-        {'sid': request.sid, 'name': name,
+        {'sid': request.sid, 'name': name, 'username': username,
          'hand': deal_hand(deck), 'field': [], 'hp': 20},
         {'sid': 'BOT', 'name': bot_name,
          'hand': deal_hand(bot_deck), 'field': [], 'hp': 20},
@@ -1307,6 +1383,10 @@ def on_start_bot_game(data):
 @socketio.on('play_card')
 def on_play_card(data):
     room_code = data.get('room'); ci = data.get('card_index')
+    slot_index = data.get('slot_index')
+    if slot_index is not None:
+        try: slot_index = int(slot_index)
+        except (TypeError, ValueError): slot_index = None
     room = rooms.get(room_code)
     if not room: return
     players = room['players']
@@ -1321,10 +1401,16 @@ def on_play_card(data):
     if ci < 0 or ci >= len(player['hand']): return
     if player['hand'][ci].get('no_normal_play'):
         emit('error_msg', {'msg': f"{player['hand'][ci]['name']} must be sacrifice-summoned — click it to open the ritual."}); return
-    pending = {'type':'play_card','player_index':pi,'card_index':ci}
+    # Validate explicit slot choice if provided
+    if slot_index is not None:
+        if not (0 <= slot_index < 4):
+            emit('error_msg', {'msg': 'Invalid slot.'}); return
+        if slot_index < len(player['field']) and player['field'][slot_index] is not None:
+            emit('error_msg', {'msg': f'Slot {slot_index+1} is occupied.'}); return
+    pending = {'type':'play_card','player_index':pi,'card_index':ci,'slot_index':slot_index}
     if _defender_has_qe(room):
         _open_hand_trap(room, room_code, pending); return
-    _exec_play_card(room, room_code, pi, ci)
+    _exec_play_card(room, room_code, pi, ci, slot_index)
 
 @socketio.on('end_play_phase')
 def on_end_play_phase(data):
@@ -1379,7 +1465,7 @@ def on_qe_response(data):
         broadcast_state(room_code)
     elif pending:
         if pending['type'] == 'play_card':
-            _exec_play_card(room, room_code, pending['player_index'], pending['card_index'])
+            _exec_play_card(room, room_code, pending['player_index'], pending['card_index'], pending.get('slot_index'))
         else:
             _exec_attack(room, room_code, pending['player_index'],
                          pending['attacker_index'], pending.get('target_index'))
@@ -2089,6 +2175,80 @@ def _remove_from_table(sid, code=None):
             _table_emit(c)
 
 # ── GEM GIFTING ──
+@socketio.on('get_leaderboard')
+def on_get_leaderboard(data=None):
+    try:
+        emit('leaderboard_data', get_leaderboard_data(limit=15))
+    except Exception as e:
+        emit('error_msg', {'msg': f'Leaderboard error: {e}'})
+
+# ─── MATCHMAKING ───
+mm_queue = []        # list of {sid, name, username, deck, joined_ts}
+_pair_times = []     # rolling list of recent wait times in seconds
+
+def _broadcast_mm_status():
+    """Send queue size + ETA estimate to everyone currently queued."""
+    avg = (sum(_pair_times) / len(_pair_times)) if _pair_times else 15
+    eta = max(3, int(avg))
+    payload = {'queue_size': len(mm_queue), 'eta_seconds': eta}
+    for entry in mm_queue:
+        socketio.emit('mm_status', payload, to=entry['sid'])
+
+def _try_pair():
+    """If two players are queued, pair them into a fresh PvP room."""
+    while len(mm_queue) >= 2:
+        a = mm_queue.pop(0)
+        b = mm_queue.pop(0)
+        wait_a = time.time() - a['joined_ts']
+        wait_b = time.time() - b['joined_ts']
+        _pair_times.append((wait_a + wait_b) / 2)
+        if len(_pair_times) > 20: del _pair_times[:len(_pair_times) - 20]
+        code = make_room_code()
+        room = new_room()
+        users = load_users()
+        for idx, e in enumerate((a, b)):
+            pid = users.get(e['username'], {}).get('player_id') if e.get('username') else None
+            room['players'].append({
+                'sid': e['sid'], 'name': e['name'], 'player_id': pid,
+                'username': e.get('username'),
+                'hand': deal_hand(e['deck']), 'field': [], 'hp': 20
+            })
+        room['player_deck'] = {0: a['deck'], 1: b['deck']}
+        first = random.randint(0, 1)
+        room.update({'current_turn': first, 'state': 'playing',
+                     'phase': 'play', 'cards_played': 0,
+                     'message': f"{room['players'][first]['name']} goes first!"})
+        rooms[code] = room
+        for i, p in enumerate(room['players']):
+            sio_join_room(code, sid=p['sid'])
+            socketio.emit('mm_matched', {'room_code': code}, to=p['sid'])
+            socketio.emit('game_start', {
+                'your_index': i, 'room_code': code,
+                'first_player': room['players'][first]['name'],
+                'coin': 'heads' if first == 0 else 'tails',
+            }, to=p['sid'])
+        broadcast_state(code)
+    _broadcast_mm_status()
+
+@socketio.on('mm_join')
+def on_mm_join(data):
+    sid = request.sid
+    # Remove any prior queue entry for this sid
+    mm_queue[:] = [e for e in mm_queue if e['sid'] != sid]
+    name = (data.get('name') or 'Player').strip()[:20] or 'Player'
+    deck = data.get('deck', 'basic')
+    username = data.get('username')
+    mm_queue.append({'sid': sid, 'name': name, 'username': username,
+                     'deck': deck, 'joined_ts': time.time()})
+    _try_pair()
+
+@socketio.on('mm_leave')
+def on_mm_leave(data=None):
+    sid = request.sid
+    mm_queue[:] = [e for e in mm_queue if e['sid'] != sid]
+    _broadcast_mm_status()
+    emit('mm_left', {})
+
 @socketio.on('chat_msg')
 def on_chat_msg(data):
     room_code = data.get('room')
@@ -2295,6 +2455,13 @@ def on_disconnect():
     _remove_from_table(request.sid)
     bj_sessions.pop(request.sid, None)
     _sid_user.pop(request.sid, None)
+    # Drop from matchmaking queue if present
+    try:
+        sid = request.sid
+        mm_queue[:] = [e for e in mm_queue if e['sid'] != sid]
+        _broadcast_mm_status()
+    except Exception:
+        pass
     for code, room in list(rooms.items()):
         for player in room['players']:
             if player['sid'] == request.sid:
