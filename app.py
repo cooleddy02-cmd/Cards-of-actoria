@@ -216,6 +216,7 @@ def _has_eff(card, sid):
 def _find_by_uid(players, uid):
     for pi, p in enumerate(players):
         for fi, c in enumerate(p['field']):
+            if c is None: continue
             if c['uid'] == uid:
                 return pi, fi, c
     return None, None, None
@@ -264,7 +265,7 @@ def destroy_card(room, room_code, owner_index, field_index,
         return False
 
     if _has(card, 'golem_banish'):
-        player['field'].pop(field_index)
+        player['field'][field_index] = None
         _check_win(room, players)
         return True
 
@@ -275,7 +276,7 @@ def destroy_card(room, room_code, owner_index, field_index,
         card['burn_turns'] = 0
         return False
 
-    player['field'].pop(field_index)
+    player['field'][field_index] = None
     if skip_on_destroy:
         return True
 
@@ -289,11 +290,12 @@ def destroy_card(room, room_code, owner_index, field_index,
         player['hp'] -= 4
     if _has(card, 'ash_phoenix') and card.get('turns_on_field', 0) <= 5:
         base = next((c for c in SPECIAL_CARDS if c['name'] == 'Phoenix'), None)
-        if base and len(player['field']) < 4:
-            player['field'].append(new_card(base))
+        if base and not _field_full(player['field']):
+            _add_to_field(player['field'], new_card(base))
     if _has(card, 'breaker_destroy'):
         removed = 0
         for ec in opp['field']:
+            if ec is None: continue
             if ec.get('block', 0) > 0:
                 ec['block'] = 0; ec['block_disabled'] = True; removed += 1
         if removed:
@@ -305,6 +307,7 @@ def destroy_card(room, room_code, owner_index, field_index,
         player['hp'] -= 3
     if _has(card, 'lich_death_buff'):
         for fc in player['field']:
+            if fc is None: continue
             _buff_atk(fc, 1); fc['def'] += 1
 
     _check_win(room, players)
@@ -317,6 +320,28 @@ def _check_win(room, players):
             if not room.get('winner'):
                 room['winner'] = players[1 - i]['name']
                 room['state']  = 'finished'
+                _maybe_award_bot_gems(room)
+
+def _maybe_award_bot_gems(room):
+    """Idempotently award gems (or record loss) when a bot game ends."""
+    if not room.get('is_bot') or not room.get('winner'): return
+    if room.get('gems_awarded'): return
+    players = room.get('players') or []
+    if not players: return
+    username = room.get('human_username')
+    if not username: return
+    room['gems_awarded'] = True
+    human_name = players[0]['name']
+    if room['winner'] == human_name:
+        amt = GEM_REWARDS.get(room.get('bot_difficulty'), 0)
+        boosted, total, new_title = _award_gems(username, amt, room.get('bot_difficulty'))
+        socketio.emit('gem_reward',
+            {'amount': boosted, 'base': amt,
+             'difficulty': room.get('bot_difficulty'),
+             'total': total, 'title': new_title},
+            to=players[0]['sid'])
+    else:
+        _record_loss(username)
 
 # ═══════════════════════════════════════════════════════════════
 #  TURN EFFECTS
@@ -330,6 +355,7 @@ def process_turn_start(room, room_code, active_index):
     greed_draw_done = greed_decay_done = sun_done = False
 
     for card in list(active['field']):
+        if card is None: continue
         tof = card.get('turns_on_field', 0)
 
         if _has(card, 'star_reroll'):
@@ -351,6 +377,7 @@ def process_turn_start(room, room_code, active_index):
 
         if _has(card, 'greed_decay') and not greed_decay_done:
             for c in active['field']:
+                if c is None: continue
                 if not _has(c, 'duraza_def_lock'):
                     c['def'] = max(c['def'] - 1, -5)
             greed_decay_done = True
@@ -377,6 +404,7 @@ def process_turn_start(room, room_code, active_index):
                 msgs.append(f"⭐ The Star negated Sun AoE!")
             else:
                 for ec in opp['field']:
+                    if ec is None: continue
                     if not _has(ec, 'aoe_immune') and not _has(ec, 'duraza_def_lock'):
                         ec['def'] -= 1
                 msgs.append(f"☀️ Sun burns all enemy cards!")
@@ -405,11 +433,12 @@ def process_turn_start(room, room_code, active_index):
             msgs.append(f"🔱 {card['name']} Pulse: opp -1 HP!")
 
         if _has(card, 'angel_dynamic_atk'):
-            all_atks = [c['atk'] for p in players for c in p['field'] if c['uid'] != card['uid']]
+            all_atks = [c['atk'] for p in players for c in p['field'] if c is not None and c['uid'] != card['uid']]
             card['atk'] = max(all_atks) if all_atks else 0
 
     for pi, p in enumerate(players):
         for card in list(p['field']):
+            if card is None: continue
             if card.get('burn_turns', 0) > 0:
                 card['def'] -= 1; card['burn_turns'] -= 1
                 msgs.append(f"🔥 {card['name']} burns! DEF→{card['def']}")
@@ -432,6 +461,8 @@ def process_turn_start(room, room_code, active_index):
         i = 0
         while i < len(players[pi]['field']):
             c = players[pi]['field'][i]
+            if c is None:
+                i += 1; continue
             if _is_dead(c) and c.get('guard_remaining', 0) == 0:
                 if not destroy_card(room, room_code, pi, i): i += 1
             else:
@@ -439,6 +470,7 @@ def process_turn_start(room, room_code, active_index):
 
     for p in players:
         for card in p['field']:
+            if card is None: continue
             card['hit_this_turn'] = 0
 
     if msgs:
@@ -447,6 +479,7 @@ def process_turn_start(room, room_code, active_index):
 def increment_turns(room):
     for p in room['players']:
         for c in p['field']:
+            if c is None: continue
             c['turns_on_field'] = c.get('turns_on_field', 0) + 1
 
 # ═══════════════════════════════════════════════════════════════
@@ -470,7 +503,7 @@ def apply_damage(card, damage, is_aoe=False, bypass_guard=False, bypass_block=Fa
 def _exec_attack(room, room_code, pi, ai, ti):
     players = room['players']
     apl = players[pi]; dpl = players[1 - pi]
-    if ai >= len(apl['field']): return
+    if ai >= len(apl['field']) or apl['field'][ai] is None: return
     atk = apl['field'][ai]; msgs = []
 
     # Time Steal bonus turn: can't deal damage
@@ -488,18 +521,18 @@ def _exec_attack(room, room_code, pi, ai, ti):
 
     # Trio-Sword triple strike (left / middle / right — not AoE)
     if _has(atk, 'trio_sword_tri'):
-        field = dpl['field']
+        live_slots = [i for i, c in enumerate(dpl['field']) if c is not None]
         positions = []
-        if len(field) >= 1: positions.append(0)
-        if len(field) >= 3: positions.append(len(field) // 2)
-        if len(field) >= 2: positions.append(len(field) - 1)
+        if len(live_slots) >= 1: positions.append(live_slots[0])
+        if len(live_slots) >= 3: positions.append(live_slots[len(live_slots) // 2])
+        if len(live_slots) >= 2: positions.append(live_slots[-1])
         positions = list(dict.fromkeys(positions))
         for pos in positions:
-            if pos < len(dpl['field']):
-                ec = dpl['field'][pos]
-                actual = apply_damage(ec, atk['atk'])
-                if actual > 0: msgs.append(f"⚔️⚔️⚔️ Trio hits {ec['name']} -{actual}!")
-        if not dpl['field']:
+            ec = dpl['field'][pos]
+            if ec is None: continue
+            actual = apply_damage(ec, atk['atk'])
+            if actual > 0: msgs.append(f"⚔️⚔️⚔️ Trio hits {ec['name']} -{actual}!")
+        if _live_count(dpl['field']) == 0:
             dpl['hp'] -= atk['atk']; msgs.append(f"⚔️⚔️⚔️ Trio direct -{atk['atk']}!")
         atk['attacked'] = True
         _check_deaths(room, room_code, 1 - pi)
@@ -516,6 +549,7 @@ def _exec_attack(room, room_code, pi, ai, ti):
             room['message'] = ' | '.join(msgs); room['phase'] = 'attack'
             broadcast_state(room_code); return
         for ec in list(dpl['field']):
+            if ec is None: continue
             apply_damage(ec, atk['atk'], is_aoe=True)
         msgs.append(f"{atk['name']} sweeps all enemy cards!")
         if _has(atk, 'hate_selfdmg'): apl['hp'] -= atk['atk']
@@ -527,7 +561,7 @@ def _exec_attack(room, room_code, pi, ai, ti):
 
     # Amegma block break (before direct/target logic)
     if _has(atk, 'amegma_block_break') and ti is not None:
-        if ti < len(dpl['field']):
+        if ti < len(dpl['field']) and dpl['field'][ti] is not None:
             tgt_check = dpl['field'][ti]
             if tgt_check.get('block', 0) > 0:
                 tgt_check['block'] = 0
@@ -537,19 +571,16 @@ def _exec_attack(room, room_code, pi, ai, ti):
                 broadcast_state(room_code); return
 
     # ───── Slot-locked combat ─────
-    # A card in slot N can ONLY hit the opposing slot N. If that slot is empty,
-    # the attack goes through to the player as direct damage (no special ability needed).
-    # Special abilities (Trio, AoE, direct-attack cards) bypass this rule above.
+    # A card in slot N can ONLY hit the opposing slot N (must match ai).
+    # Direct attack on the player requires an explicit direct-attack ability
+    # (wrath_direct / amegma_free_attack) — empty opposing slot does NOT enable it.
     if ti is not None and ti != ai:
         room['message'] = f"⛔ {atk['name']} (slot {ai+1}) can only hit the card in slot {ai+1}."
         room['phase'] = 'attack'; broadcast_state(room_code); return
     if ti is None:
-        # Direct attack — allowed only if the opposing slot is empty,
-        # OR the card has an explicit direct-attack ability (legacy rule).
-        if ai < len(dpl['field']):
-            if not _has(atk, 'wrath_direct') and not _has(atk, 'amegma_free_attack'):
-                room['message'] = f"⛔ Slot {ai+1} is occupied — must attack {dpl['field'][ai]['name']}."
-                room['phase'] = 'attack'; broadcast_state(room_code); return
+        if not _has(atk, 'wrath_direct') and not _has(atk, 'amegma_free_attack'):
+            room['message'] = f"⛔ {atk['name']} cannot attack the player directly (no direct-attack ability)."
+            room['phase'] = 'attack'; broadcast_state(room_code); return
         dpl['hp'] -= atk['atk']
         msgs.append(f"{atk['name']} deals {atk['atk']} direct damage!")
         if _has(atk, 'hate_selfdmg'): apl['hp'] -= atk['atk']
@@ -558,7 +589,7 @@ def _exec_attack(room, room_code, pi, ai, ti):
         room['message'] = ' | '.join(msgs); room['phase'] = 'attack'
         broadcast_state(room_code); return
 
-    if ti >= len(dpl['field']): return
+    if ti >= len(dpl['field']) or dpl['field'][ti] is None: return
     tgt = dpl['field'][ti]; dmg = atk['atk']
 
     # Mirror
@@ -633,7 +664,7 @@ def _exec_play_card(room, room_code, pi, ci):
     card['attacked'] = False; card['turns_on_field'] = 0
     if _has(card, 'v18_reroll'):
         card['atk'] = random.randint(0, 8)
-    player['field'].append(card)
+    _add_to_field(player['field'], card)
     room['cards_played'] += 1
     room['message'] = f"{player['name']} played {card['name']}."
     room['phase'] = 'play'
@@ -644,6 +675,8 @@ def _check_deaths(room, room_code, pi):
     i = 0
     while i < len(players[pi]['field']):
         c = players[pi]['field'][i]
+        if c is None:
+            i += 1; continue
         if _is_dead(c) and c.get('guard_remaining', 0) == 0:
             if not destroy_card(room, room_code, pi, i): i += 1
         else:
@@ -674,6 +707,7 @@ def _pdesc(p):
 def _tick_freeze(room, ending_pi):
     for p in room['players']:
         for c in p['field']:
+            if c is None: continue
             if c.get('frozen') and c.get('freeze_by') == ending_pi:
                 c['freeze_turns'] = c.get('freeze_turns', 1) - 1
                 if c['freeze_turns'] <= 0:
@@ -703,27 +737,30 @@ def _bot_plays(bot, human, diff):
         return sorted(scored[:min(2, len(scored))], reverse=True)
 
 def _bot_attacks(bot, human, diff):
-    """Slot-locked: card in slot N hits opposing slot N (or player if slot empty).
-    Special-targeting abilities (trio/AoE/direct) are unaffected — _exec_attack handles them."""
+    """Slot-locked: card in slot N hits opposing slot N.
+    Direct attack on the player ONLY if the card has wrath_direct/amegma_free_attack.
+    Special-targeting abilities (trio/AoE) are unaffected — _exec_attack handles them."""
     attacks = []
+    has_direct_ability = lambda c: _has(c, 'wrath_direct') or _has(c, 'amegma_free_attack')
     for ai, card in enumerate(bot['field']):
+        if card is None: continue
         if card.get('attacked'): continue
         # Self-damage suicide guard (Hate cards)
         if _has(card, 'hate_selfdmg') and bot['hp'] <= card['atk']:
             continue
-        opp_has_card = ai < len(human['field'])
         # Easy = sometimes skips; medium/hard always swing if possible.
         if diff == 'easy' and random.random() >= 0.6:
             continue
-        if opp_has_card:
-            tgt = human['field'][ai]
+        opp_card = human['field'][ai] if ai < len(human['field']) else None
+        if opp_card is not None:
             # Hard difficulty: skip if target is guarded and we can't break it
-            if diff == 'hard' and tgt.get('guard_remaining', 0) > 0 and card['atk'] <= tgt['def']:
+            if diff == 'hard' and opp_card.get('guard_remaining', 0) > 0 and card['atk'] <= opp_card['def']:
                 continue
             attacks.append((ai, ai))
-        else:
-            # Empty opposing slot → slot-lock now allows direct attack on the player
+        elif has_direct_ability(card):
+            # Opposing slot empty + this card can attack player directly
             attacks.append((ai, None))
+        # else: skip — no valid attack
     return attacks
 
 def bot_execute_turn(room_code):
@@ -739,7 +776,7 @@ def bot_execute_turn(room_code):
     for ci in plays:
         room = rooms.get(room_code)
         if not room or room.get('state') == 'finished': return
-        if len(bot['field']) < 4 and ci < len(bot['hand']):
+        if not _field_full(bot['field']) and ci < len(bot['hand']):
             _exec_play_card(room, room_code, 1, ci)
             socketio.sleep(0.85)
 
@@ -756,7 +793,7 @@ def bot_execute_turn(room_code):
         room = rooms.get(room_code)
         if not room or room.get('state') == 'finished': return
         field = room['players'][1]['field']
-        if ai < len(field) and not field[ai].get('attacked'):
+        if ai < len(field) and field[ai] is not None and not field[ai].get('attacked'):
             _exec_attack(room, room_code, 1, ai, ti)
             socketio.sleep(0.85)
 
@@ -809,6 +846,7 @@ def _do_end_turn(room, room_code, pi):
     players = room['players']
     _tick_freeze(room, pi)
     for c in players[pi]['field']:
+        if c is None: continue
         c['attacked'] = False
     increment_turns(room)
 
@@ -852,22 +890,8 @@ def _do_end_turn(room, room_code, pi):
 
     process_turn_start(room, room_code, nt)
 
-    # Award gems if bot game just ended with human winning
-    if room.get('winner') and room.get('is_bot'):
-        human_name = players[0]['name']
-        if room['winner'] == human_name:
-            username = room.get('human_username')
-            if username:
-                amt = GEM_REWARDS.get(room.get('bot_difficulty'), 0)
-                boosted, total, new_title = _award_gems(username, amt, room.get('bot_difficulty'))
-                socketio.emit('gem_reward', {'amount': boosted, 'base': amt,
-                              'difficulty': room.get('bot_difficulty'),
-                              'total': total, 'title': new_title},
-                              to=players[0]['sid'])
-        else:
-            username = room.get('human_username')
-            if username:
-                _record_loss(username)
+    # Gem award / loss recording is handled inside _check_win → _maybe_award_bot_gems
+    # (idempotent via room['gems_awarded'])
 
     broadcast_state(room_code)
 
@@ -1258,7 +1282,7 @@ def on_play_card(data):
     if room['cards_played'] >= 2:
         emit('error_msg', {'msg': 'Already played 2 cards this turn.'}); return
     player = players[pi]
-    if len(player['field']) >= 4:
+    if _field_full(player['field']):
         emit('error_msg', {'msg': 'Field is full (max 4).'}); return
     if ci < 0 or ci >= len(player['hand']): return
     if player['hand'][ci].get('no_normal_play'):
@@ -1287,14 +1311,14 @@ def on_attack(data):
     players = room['players']
     pi = next((i for i,p in enumerate(players) if p['sid']==request.sid), None)
     if pi is None or pi != room['current_turn'] or room['phase'] != 'attack': return
-    if ai >= len(players[pi]['field']): return
+    if ai >= len(players[pi]['field']) or players[pi]['field'][ai] is None: return
     if players[pi]['field'][ai].get('attacked'):
         emit('error_msg', {'msg': 'Already attacked.'}); return
     # Pull check (slot-locked combat): a pull card only forces the attacker
     # in the SAME slot to target it. Other attackers follow normal slot rules.
     dpl_pull = players[1 - pi]
     pull_fi = next((fi for fi, c in enumerate(dpl_pull['field'])
-                    if _has(c, 'atlas_bhh_pull') or _has(c, 'bhole_pull')), None)
+                    if c is not None and (_has(c, 'atlas_bhh_pull') or _has(c, 'bhole_pull'))), None)
     if pull_fi is not None and pull_fi == ai and ti != pull_fi:
         emit('error_msg', {'msg': "The pull card in your slot forces you to target it!"}); return
     pending = {'type':'attack','player_index':pi,'attacker_index':ai,'target_index':ti}
@@ -1334,19 +1358,7 @@ def on_end_turn(data):
     pi = next((i for i,p in enumerate(players) if p['sid']==request.sid), None)
     if pi is None or pi != room['current_turn'] or room['phase'] != 'attack': return
     _do_end_turn(room, room_code, pi)
-    # Award gems if game ended and human won
-    if room.get('winner') and room.get('is_bot'):
-        human_name = players[0]['name']
-        if room['winner'] == human_name:
-            username = room.get('human_username')
-            if username:
-                amt = GEM_REWARDS.get(room.get('bot_difficulty'), 0)
-                boosted, total, new_title = _award_gems(username, amt, room.get('bot_difficulty'))
-                socketio.emit('gem_reward',
-                    {'amount': boosted, 'base': amt,
-                     'difficulty': room.get('bot_difficulty'),
-                     'total': total, 'title': new_title},
-                    to=players[0]['sid'])
+    # Gem award is handled by _check_win → _maybe_award_bot_gems
 
 @socketio.on('use_ability')
 def on_use_ability(data):
@@ -1369,7 +1381,7 @@ def on_use_ability(data):
         if rc.get('frozen'): emit('error_msg',{'msg':'Frozen.'}); return
         if room['turn_count'] - player.get('last_rewind_turn', -99) < 2:
             emit('error_msg',{'msg':'Time Steal on cooldown (once per 2 turns).'}); return
-        player['field'].pop(rfi)
+        player['field'][rfi] = None
         player['hp'] -= 3
         player['bonus_turn_pending'] = True
         player['last_rewind_turn'] = room['turn_count']
@@ -1386,7 +1398,7 @@ def on_use_ability(data):
         t_pi,t_fi,t_card = _find_by_uid(players, target_uid)
         if t_pi != pi: emit('error_msg',{'msg':'Own cards only.'}); return
         if t_card.get('no_draw'): emit('error_msg',{'msg':'Cannot return this card.'}); return
-        player['field'].pop(t_fi); player['hand'].append(t_card)
+        player['field'][t_fi] = None; player['hand'].append(t_card)
         ccard['last_bounce_turn'] = room['turn_count']
         room['message'] = f"🎪 {t_card['name']} returned to hand!"
         broadcast_state(room_code)
@@ -1412,7 +1424,7 @@ def on_use_ability(data):
         else:
             _buff_atk(t_card, 2)
             room['message'] = f"⚔️ Sword: {t_card['name']} +2 ATK!"
-        if sfi is not None: player['field'].pop(sfi)
+        if sfi is not None: player['field'][sfi] = None
         elif shi is not None: player['hand'].pop(shi)
         broadcast_state(room_code)
 
@@ -1421,9 +1433,9 @@ def on_use_ability(data):
         if mc is None or not _has(mc,'milk_summon'): return
         if mc.get('frozen'): emit('error_msg',{'msg':'Frozen.'}); return
         if mc.get('turns_on_field',0) < 1: emit('error_msg',{'msg':"Need 1 turn on field first."}); return
-        if len(player['field']) >= 4: emit('error_msg',{'msg':'Field full.'}); return
+        if _field_full(player['field']): emit('error_msg',{'msg':'Field full.'}); return
         base = next((c for c in CARDLIST if c['name']=='Milktoken'),None)
-        if base: player['field'].append(new_card(base)); room['message']="🥛 Milk Token summoned!"
+        if base: _add_to_field(player['field'], new_card(base)); room['message']="🥛 Milk Token summoned!"
         broadcast_state(room_code)
 
     elif ability_id == 'milk_drink':
@@ -1431,7 +1443,7 @@ def on_use_ability(data):
             emit('error_msg',{'msg':"Clock's Milk must be alive."}); return
         t_pi,t_fi,t_card = _find_by_uid(players, target_uid)
         if t_pi != pi or t_card['name'] != 'Milktoken': return
-        player['field'].pop(t_fi); player['hp']+=2
+        player['field'][t_fi] = None; player['hp']+=2
         room['message']="🥛 Milk Drink: +2 HP!"; broadcast_state(room_code)
 
     elif ability_id == 'greed_atlas':
@@ -1439,10 +1451,10 @@ def on_use_ability(data):
         if not gc or gc.get('frozen'): return
         if gc.get('atlas_used_turn') == room['turn_count']:
             emit('error_msg',{'msg':'Atlas summon: once per turn.'}); return
-        if len(player['field']) >= 4: emit('error_msg',{'msg':'Field full.'}); return
+        if _field_full(player['field']): emit('error_msg',{'msg':'Field full.'}); return
         base = next((c for c in SPECIAL_CARDS if c['name']=='Atlas'),None)
         if base:
-            player['hp']-=2; player['field'].append(new_card(base))
+            player['hp']-=2; _add_to_field(player['field'], new_card(base))
             gc['atlas_used_turn']=room['turn_count']
             room['message']="💰 Atlas summoned! -2 HP."; broadcast_state(room_code)
 
@@ -1486,9 +1498,10 @@ def on_use_ability(data):
         if sc.get('sad_sent'): emit('error_msg', {'msg': 'Pass On already used.'}); return
         if player['hp'] <= 3: emit('error_msg', {'msg': 'Not enough HP (need >3).'}); return
         player['hp'] -= 3
-        player['field'].remove(sc)
+        sc_idx = next((i for i, c in enumerate(player['field']) if c is sc), None)
+        if sc_idx is not None: player['field'][sc_idx] = None
         sc['sad_sent'] = True
-        opp['field'].append(sc) if len(opp['field']) < 4 else player['field'].append(sc)
+        _add_to_field(opp['field'], sc) if not _field_full(opp['field']) else _add_to_field(player['field'], sc)
         room['message'] = f"💔 Sad Dream sent to opponent at cost of 3 HP!"
         broadcast_state(room_code)
 
@@ -1499,6 +1512,7 @@ def on_use_ability(data):
         if ic.get('frost_breath_used_turn') == room['turn_count']:
             emit('error_msg', {'msg': 'Frost Breath: once per turn.'}); return
         for ec in opp['field']:
+            if ec is None: continue
             ec['frozen'] = True; ec['freeze_by'] = pi; ec['freeze_turns'] = 1
             ec['frost_shield_turns'] = 2
         ic['frost_breath_used_turn'] = room['turn_count']
@@ -1552,7 +1566,7 @@ def on_use_ability(data):
         t_pi, t_fi, t_card = _find_by_uid(players, target_uid)
         if t_card is None or t_pi == pi:
             emit('error_msg', {'msg': 'Target enemy cards only.'}); return
-        opp['field'].pop(t_fi)
+        opp['field'][t_fi] = None
         t_card['turns_on_field'] = 0
         opp['hand'].append(t_card)
         scard['gravity_well_used'] = True
@@ -1566,12 +1580,12 @@ def on_use_ability(data):
         if bh.get('frozen'): emit('error_msg', {'msg': 'Frozen.'}); return
         if bh.get('atlas_summon_used_turn') == room['turn_count']:
             emit('error_msg', {'msg': 'Atlas Summon: once per turn.'}); return
-        if len(player['field']) >= 4:
+        if _field_full(player['field']):
             emit('error_msg', {'msg': 'Field full.'}); return
         base = next((c for c in SPECIAL_CARDS if c['name'] == 'Atlas BHH'), None)
         if base:
             player['hp'] -= 4
-            player['field'].append(new_card(base))
+            _add_to_field(player['field'], new_card(base))
             bh['atlas_summon_used_turn'] = room['turn_count']
             room['message'] = f"🌌 Atlas BHH summoned! -4 HP."
             broadcast_state(room_code)
@@ -1598,6 +1612,7 @@ def on_use_ability(data):
             emit('error_msg', {'msg': 'E.M.P. requires HP below half (< 10).'}); return
         for p in players:
             for c in p['field']:
+                if c is None: continue
                 if c['uid'] != ang['uid']:
                     c['emp_turns'] = 4
         ang['emp_used'] = True
@@ -1636,9 +1651,9 @@ def on_sacrifice_summon(data):
         emit('error_msg', {'msg': 'Already played 2 cards this turn.'}); return
 
     player = players[pi]
-    if len(player['field']) >= 4:
+    if _field_full(player['field']):
         emit('error_msg', {'msg': 'Field is full (max 4).'}); return
-    if any(i < 0 or i >= len(player['field']) for i in field_sacs):
+    if any(i < 0 or i >= len(player['field']) or player['field'][i] is None for i in field_sacs):
         emit('error_msg', {'msg': 'Invalid field sacrifice.'}); return
     if any(i < 0 or i >= len(player['hand']) for i in hand_sacs):
         emit('error_msg', {'msg': 'Invalid hand sacrifice.'}); return
@@ -1668,7 +1683,7 @@ def on_sacrifice_summon(data):
         hand_card['attacked'] = False; hand_card['turns_on_field'] = 0
         if _has(hand_card, 'omega_atk_lock'):
             hand_card['base_atk'] = hand_card.get('atk', 0)
-        player['field'].append(hand_card)
+        _add_to_field(player['field'], hand_card)
         room['cards_played'] += 1
         room['message'] = f"✨ {player['name']} ritual-summoned {target_name}!"
         broadcast_state(room_code); return
@@ -1738,7 +1753,7 @@ def on_sacrifice_summon(data):
     for hi in sorted(hand_sacs, reverse=True):
         player['hand'].pop(hi)
     new_c = new_card(base)
-    player['field'].append(new_c)
+    _add_to_field(player['field'], new_c)
     room['cards_played'] += 1
     room['message'] = f"✨ {player['name']} summoned {target_name}!"
     broadcast_state(room_code)
