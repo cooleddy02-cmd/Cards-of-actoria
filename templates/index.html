@@ -316,6 +316,10 @@
     <span class="icon">🏷️</span>
     <div class="info"><h3>Titles</h3><p>View your unlocked titles and equip one to show off</p></div>
   </button>
+  <button class="menu-btn" id="menu-lb-btn" onclick="openLeaderboard()">
+    <span class="icon">🏆</span>
+    <div class="info"><h3>Leaderboard</h3><p>Top players and the best-performing decks</p></div>
+  </button>
   <div style="text-align:center;margin-top:-4px">
     <button class="btn-sec btn-sm" onclick="openAdminPrompt()">⚙️ Admin</button>
   </div>
@@ -341,6 +345,8 @@
     <div class="field-label" style="margin-bottom:6px">Your Deck</div>
     <div class="deck-sel" id="lobby-deck-sel"></div>
   </div>
+  <button onclick="findMatch()" class="btn-gold" style="font-size:1.05rem">🎯 Find a Match (auto)</button>
+  <div class="divider">or</div>
   <button onclick="createRoom()">Create Room</button>
   <div class="divider">or join</div>
   <div style="display:flex;gap:8px">
@@ -348,6 +354,30 @@
     <button onclick="joinRoom()" style="width:100px;flex-shrink:0">Join</button>
   </div>
   <p class="err" id="lobby-err"></p>
+</div>
+
+<!-- ═══ LEADERBOARD ═══ -->
+<div class="screen" id="leaderboard-screen" style="max-width:760px">
+  <button class="btn-sec btn-sm" style="align-self:flex-start" onclick="showScreen('menu-screen')">← Back</button>
+  <h2 style="margin:6px 0 2px">🏆 Leaderboard</h2>
+  <p style="color:#888;font-size:.85rem;margin:0 0 10px">Top players ranked by total wins. Deck stats need at least 3 plays to appear.</p>
+  <div style="display:flex;gap:8px;margin-bottom:8px">
+    <button onclick="loadLeaderboard()" class="btn-sec btn-sm">🔄 Refresh</button>
+    <div style="flex:1"></div>
+    <button onclick="switchLb('players')" id="lb-tab-players" class="btn-gold btn-sm">Players</button>
+    <button onclick="switchLb('decks')"   id="lb-tab-decks"   class="btn-sec  btn-sm">Decks</button>
+  </div>
+  <div id="lb-players-table" style="display:block"></div>
+  <div id="lb-decks-table"   style="display:none"></div>
+</div>
+
+<!-- ═══ MATCHMAKING ═══ -->
+<div class="screen" id="mm-screen" style="max-width:520px;text-align:center">
+  <h2>🎯 Searching for opponent…</h2>
+  <div style="font-size:5rem;margin:18px 0;animation:pulse 1.4s infinite">⏳</div>
+  <p style="color:#aaa;margin:4px 0">Players in queue: <b id="mm-queue">…</b></p>
+  <p style="color:#ffaa00;margin:4px 0 18px">Estimated wait: <b id="mm-eta">~?s</b></p>
+  <button onclick="cancelMatch()" class="btn-sec">Cancel</button>
 </div>
 
 <!-- ═══ WAITING ═══ -->
@@ -436,6 +466,18 @@
   <div class="player-bar">
     <span class="pname" id="your-name-bar">You</span>
     <span class="hp">❤️ <span id="your-hp">20</span></span>
+  </div>
+
+  <!-- Slot picker overlay (shown when playing a normal hand card) -->
+  <div id="slot-picker" class="overlay" style="display:none">
+    <div class="overlay-content" style="max-width:480px">
+      <h3 style="margin:0 0 4px;color:#ff5555">Choose a slot</h3>
+      <p style="color:#888;font-size:.85rem;margin:0 0 14px">Pick where on your field to place this card.</p>
+      <div id="slot-picker-slots" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"></div>
+      <div style="text-align:center;margin-top:16px">
+        <button onclick="closeSlotPicker()" class="btn-sec btn-sm">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <!-- Side panel: rolling event history + in-game chat -->
@@ -1461,7 +1503,39 @@ function renderHand(hand, phase, isMyTurn, cardsPlayed) {
 // ═══════════════════════════════════════════════════════
 //  GAME ACTIONS
 // ═══════════════════════════════════════════════════════
-function playCard(i)    { socket.emit('play_card',      {room:roomCode,card_index:i}); }
+function playCard(i)    { openSlotPicker(i); }
+function _emitPlayCard(i, slot) {
+  socket.emit('play_card', {room: roomCode, card_index: i, slot_index: slot});
+  closeSlotPicker();
+}
+function openSlotPicker(handIdx) {
+  if (!gameState) return;
+  const field = gameState.your_field || [];
+  const ov = document.getElementById('slot-picker'); if (!ov) return;
+  const wrap = document.getElementById('slot-picker-slots'); wrap.innerHTML = '';
+  for (let s = 0; s < 4; s++) {
+    const occupied = s < field.length && field[s] !== null;
+    const btn = document.createElement('button');
+    btn.style.cssText = 'min-width:90px;padding:14px 8px;border-radius:10px;border:2px solid '
+      + (occupied?'#553':'#3a7') + ';background:' + (occupied?'#222':'#1a3a1a')
+      + ';color:#fff;cursor:' + (occupied?'not-allowed':'pointer') + ';font-size:.85rem';
+    btn.disabled = occupied;
+    const occLabel = occupied ? `<div style="font-size:.7rem;color:#aaa">${field[s].name}</div>` : `<div style="font-size:.7rem;color:#9f9">Empty</div>`;
+    btn.innerHTML = `<div style="font-size:1.4rem">Slot ${s+1}</div>${occLabel}`;
+    if (!occupied) btn.addEventListener('click', () => _emitPlayCard(handIdx, s));
+    wrap.appendChild(btn);
+  }
+  // "Any slot" auto button
+  const auto = document.createElement('button');
+  auto.style.cssText = 'min-width:120px;padding:14px 10px;border-radius:10px;border:2px solid #ff8800;background:#2a1f0a;color:#fff;cursor:pointer;font-size:.85rem';
+  auto.innerHTML = `<div style="font-size:1.1rem">⚡ Auto</div><div style="font-size:.7rem;color:#fc8">Leftmost empty</div>`;
+  auto.addEventListener('click', () => _emitPlayCard(handIdx, null));
+  wrap.appendChild(auto);
+  ov.classList.add('show');
+}
+function closeSlotPicker() {
+  const ov = document.getElementById('slot-picker'); if (ov) ov.classList.remove('show');
+}
 function endPlayPhase() { socket.emit('end_play_phase', {room:roomCode}); selectedAttacker=null; closeAbility(); }
 function endTurn()      { selectedAttacker=null; closeAbility(); socket.emit('end_turn',{room:roomCode}); }
 
@@ -1594,6 +1668,64 @@ socket.on('opponent_left', () => {
 });
 socket.on('error_msg', d => { document.getElementById('msg-bar').textContent=`⚠️ ${d.msg}`; });
 socket.on('chat_update', d => { if (Array.isArray(d.chat)) renderChat(d.chat); });
+
+// ── LEADERBOARD ──
+let lbCache = {players: [], decks: []};
+let lbTab = 'players';
+function openLeaderboard() { showScreen('leaderboard-screen'); loadLeaderboard(); }
+function loadLeaderboard() { socket.emit('get_leaderboard', {}); }
+function switchLb(tab) {
+  lbTab = tab;
+  document.getElementById('lb-tab-players').className = (tab==='players' ? 'btn-gold btn-sm' : 'btn-sec btn-sm');
+  document.getElementById('lb-tab-decks').className   = (tab==='decks'   ? 'btn-gold btn-sm' : 'btn-sec btn-sm');
+  document.getElementById('lb-players-table').style.display = (tab==='players' ? 'block' : 'none');
+  document.getElementById('lb-decks-table').style.display   = (tab==='decks'   ? 'block' : 'none');
+}
+function renderLb() {
+  const p = document.getElementById('lb-players-table');
+  if (!lbCache.players.length) {
+    p.innerHTML = '<p style="color:#888;text-align:center;padding:20px">No games recorded yet.</p>';
+  } else {
+    p.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:.85rem">'
+      + '<thead><tr style="background:#222;color:#ff8"><th style="text-align:left;padding:6px">#</th><th style="text-align:left;padding:6px">Player</th><th style="padding:6px">W</th><th style="padding:6px">L</th><th style="padding:6px">Win %</th><th style="padding:6px">💎</th></tr></thead>'
+      + '<tbody>' + lbCache.players.map((r,i) =>
+        `<tr style="border-bottom:1px solid #222"><td style="padding:6px;color:#aaa">${i+1}</td><td style="padding:6px"><b>${escapeHTML(r.username)}</b><div style="font-size:.65rem;color:#666">${escapeHTML(r.player_id||'')}</div></td><td style="text-align:center;padding:6px;color:#9f9">${r.wins}</td><td style="text-align:center;padding:6px;color:#f99">${r.losses}</td><td style="text-align:center;padding:6px;color:#ffaa44">${r.win_rate}%</td><td style="text-align:center;padding:6px">${r.gems}</td></tr>`
+      ).join('') + '</tbody></table>';
+  }
+  const d = document.getElementById('lb-decks-table');
+  if (!lbCache.decks.length) {
+    d.innerHTML = '<p style="color:#888;text-align:center;padding:20px">No deck stats yet (need 3+ plays per deck).</p>';
+  } else {
+    d.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:.85rem">'
+      + '<thead><tr style="background:#222;color:#ff8"><th style="text-align:left;padding:6px">#</th><th style="text-align:left;padding:6px">Deck</th><th style="padding:6px">Plays</th><th style="padding:6px">W</th><th style="padding:6px">L</th><th style="padding:6px">Win %</th></tr></thead>'
+      + '<tbody>' + lbCache.decks.map((r,i) =>
+        `<tr style="border-bottom:1px solid #222"><td style="padding:6px;color:#aaa">${i+1}</td><td style="padding:6px"><b>${escapeHTML(r.deck)}</b></td><td style="text-align:center;padding:6px">${r.plays}</td><td style="text-align:center;padding:6px;color:#9f9">${r.wins}</td><td style="text-align:center;padding:6px;color:#f99">${r.losses}</td><td style="text-align:center;padding:6px;color:#ffaa44">${r.win_rate}%</td></tr>`
+      ).join('') + '</tbody></table>';
+  }
+}
+socket.on('leaderboard_data', d => { lbCache = d || {players:[], decks:[]}; renderLb(); });
+
+// ── MATCHMAKING ──
+function findMatch() {
+  const name = (document.getElementById('lobby-name').value || session.username || 'Player').trim();
+  if (!session.username) {
+    document.getElementById('lobby-err').textContent = 'Please log in first to find a match.'; return;
+  }
+  socket.emit('mm_join', { name, deck: deckSelections.lobby, username: session.username });
+  document.getElementById('mm-queue').textContent = '…';
+  document.getElementById('mm-eta').textContent = '~?s';
+  showScreen('mm-screen');
+}
+function cancelMatch() {
+  socket.emit('mm_leave', {});
+  showScreen('lobby-screen');
+}
+socket.on('mm_status',  d => {
+  document.getElementById('mm-queue').textContent = d.queue_size;
+  document.getElementById('mm-eta').textContent   = '~' + d.eta_seconds + 's';
+});
+socket.on('mm_matched', d => { /* game_start will navigate */ });
+socket.on('mm_left',    () => {});
 
 function toggleSidePanel(){
   const p = document.getElementById('side-panel');
