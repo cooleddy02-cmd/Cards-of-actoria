@@ -1617,7 +1617,7 @@ function renderChat(chat){
     const isMe = gameState && m.sender === gameState.your_name;
     const div = document.createElement('div');
     div.style.cssText = 'margin-bottom:6px;padding:5px 8px;border-radius:7px;background:' + (isMe?'#2a1a1a':'#1a1a2a') + ';border-left:3px solid ' + (isMe?'#ff5555':'#5588ff');
-    div.innerHTML = `<div style="font-size:.65rem;color:#888;text-transform:uppercase">${m.sender}</div><div>${escapeHTML(m.text)}</div>`;
+    div.innerHTML = `<div style="font-size:.65rem;color:#888;text-transform:uppercase">${escapeHTML(m.sender||'?')}</div><div>${escapeHTML(m.text)}</div>`;
     el.appendChild(div);
   });
   el.scrollTop = el.scrollHeight;
