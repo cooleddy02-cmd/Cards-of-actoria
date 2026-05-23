@@ -469,8 +469,8 @@
   </div>
 
   <!-- Slot picker overlay (shown when playing a normal hand card) -->
-  <div id="slot-picker" class="overlay" style="display:none">
-    <div class="overlay-content" style="max-width:480px">
+  <div id="slot-picker" class="overlay">
+    <div class="overlay-content" style="max-width:480px;background:#181818;border:2px solid #ff3333;border-radius:14px;padding:22px">
       <h3 style="margin:0 0 4px;color:#ff5555">Choose a slot</h3>
       <p style="color:#888;font-size:.85rem;margin:0 0 14px">Pick where on your field to place this card.</p>
       <div id="slot-picker-slots" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"></div>
@@ -482,12 +482,12 @@
 
   <!-- Side panel: rolling event history + in-game chat -->
   <button id="side-toggle" onclick="toggleSidePanel()"
-    style="position:fixed;bottom:14px;right:14px;z-index:60;width:54px;height:54px;border-radius:50%;
+    style="position:fixed;bottom:14px;left:14px;z-index:60;width:54px;height:54px;border-radius:50%;
            background:#222;border:2px solid #ff3333;color:#fff;font-size:1.4rem;cursor:pointer;
            box-shadow:0 3px 12px rgba(0,0,0,.6)">💬</button>
-  <div id="side-panel" style="position:fixed;top:0;right:-340px;width:330px;height:100vh;background:#111;
-       border-left:2px solid #ff3333;z-index:55;display:flex;flex-direction:column;transition:right .25s;
-       box-shadow:-3px 0 14px rgba(0,0,0,.5)">
+  <div id="side-panel" style="position:fixed;top:0;left:-340px;width:330px;height:100vh;background:#111;
+       border-right:2px solid #ff3333;z-index:55;display:flex;flex-direction:column;transition:left .25s;
+       box-shadow:3px 0 14px rgba(0,0,0,.5)">
     <div style="padding:10px 14px;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center">
       <span style="font-weight:bold;color:#ff5555">📜 Game Log & Chat</span>
       <button onclick="toggleSidePanel()" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer">✕</button>
@@ -1729,7 +1729,7 @@ socket.on('mm_left',    () => {});
 
 function toggleSidePanel(){
   const p = document.getElementById('side-panel');
-  p.style.right = (p.style.right === '0px') ? '-340px' : '0px';
+  p.style.left = (p.style.left === '0px') ? '-340px' : '0px';
 }
 function renderHistory(hist){
   const ul = document.getElementById('history-list'); if (!ul) return;
