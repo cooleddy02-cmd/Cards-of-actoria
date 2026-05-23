@@ -1633,6 +1633,7 @@ function openSacOverlay(targetName, handCardIdx, isSpec, specDef) {
   // Build field list
   const fl = document.getElementById('sac-field-list'); fl.innerHTML = '';
   (gameState.your_field || []).forEach((card, fi) => {
+    if (!card) return; // skip empty slot placeholders
     const nosac = (card.specials||[]).some(s => s.id==='no_sacrifice');
     const row = document.createElement('label');
     row.style = 'display:flex;align-items:center;gap:8px;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:7px 10px;cursor:' + (nosac ? 'not-allowed' : 'pointer');
