@@ -616,8 +616,14 @@ def _exec_attack(room, room_code, pi, ai, ti):
         room['message'] = f"⛔ {atk['name']} (slot {ai+1}) can only hit the card in slot {ai+1}."
         room['phase'] = 'attack'; broadcast_state(room_code); return
     if ti is None:
-        if not _has(atk, 'wrath_direct') and not _has(atk, 'amegma_free_attack'):
-            room['message'] = f"⛔ {atk['name']} cannot attack the player directly (no direct-attack ability)."
+        enemy_empty = (_live_count(dpl['field']) == 0)
+        has_direct  = _has(atk, 'wrath_direct') or _has(atk, 'amegma_free_attack')
+        # Sweep cards explicitly can never hit the player directly.
+        if _has(atk, 'side_aoe'):
+            room['message'] = f"⛔ {atk['name']} (Sweep) cannot deal direct damage to the player."
+            room['phase'] = 'attack'; broadcast_state(room_code); return
+        if not has_direct and not enemy_empty:
+            room['message'] = f"⛔ {atk['name']} can only swing at the player when the enemy field is empty."
             room['phase'] = 'attack'; broadcast_state(room_code); return
         dpl['hp'] -= atk['atk']
         msgs.append(f"{atk['name']} deals {atk['atk']} direct damage!")
@@ -790,10 +796,12 @@ def _bot_plays(bot, human, diff):
 
 def _bot_attacks(bot, human, diff):
     """Slot-locked: card in slot N hits opposing slot N.
-    Direct attack on the player ONLY if the card has wrath_direct/amegma_free_attack.
+    Direct attack on the player when: card has wrath_direct/amegma_free_attack,
+    OR the entire enemy field is empty. Sweep (side_aoe) never direct-attacks.
     Special-targeting abilities (trio/AoE) are unaffected — _exec_attack handles them."""
     attacks = []
     has_direct_ability = lambda c: _has(c, 'wrath_direct') or _has(c, 'amegma_free_attack')
+    enemy_empty = (_live_count(human['field']) == 0)
     for ai, card in enumerate(bot['field']):
         if card is None: continue
         if card.get('attacked'): continue
@@ -809,8 +817,11 @@ def _bot_attacks(bot, human, diff):
             if diff == 'hard' and opp_card.get('guard_remaining', 0) > 0 and card['atk'] <= opp_card['def']:
                 continue
             attacks.append((ai, ai))
-        elif has_direct_ability(card):
-            # Opposing slot empty + this card can attack player directly
+        elif _has(card, 'side_aoe'):
+            # Sweep cards can't hit the player even if field is empty
+            continue
+        elif has_direct_ability(card) or enemy_empty:
+            # Either explicit direct-attack ability, or enemy field is completely empty
             attacks.append((ai, None))
         # else: skip — no valid attack
     return attacks
