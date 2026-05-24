@@ -345,15 +345,41 @@
     <div class="field-label" style="margin-bottom:6px">Your Deck</div>
     <div class="deck-sel" id="lobby-deck-sel"></div>
   </div>
+  <div>
+    <div class="field-label" style="margin-bottom:6px">⏱️ Turn Timer</div>
+    <div class="timer-sel" id="lobby-timer-sel" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>
+  <div>
+    <div class="field-label" style="margin-bottom:6px">🔓 Room Visibility</div>
+    <div class="vis-sel" id="lobby-vis-sel" style="display:flex;gap:6px">
+      <button type="button" class="btn-sec btn-sm vis-btn selected" data-vis="public"
+              onclick="selectVis('public')" style="flex:1">🌍 Public (in browser)</button>
+      <button type="button" class="btn-sec btn-sm vis-btn" data-vis="private"
+              onclick="selectVis('private')" style="flex:1">🔒 Private (code only)</button>
+    </div>
+  </div>
   <button onclick="findMatch()" class="btn-gold" style="font-size:1.05rem">🎯 Find a Match (auto)</button>
   <div class="divider">or</div>
   <button onclick="createRoom()">Create Room</button>
+  <button onclick="openRoomBrowser()" class="btn-sec">🌍 Browse Public Rooms</button>
   <div class="divider">or join</div>
   <div style="display:flex;gap:8px">
     <input id="join-code" type="text" placeholder="Room code" maxlength="4" style="text-transform:uppercase"/>
     <button onclick="joinRoom()" style="width:100px;flex-shrink:0">Join</button>
   </div>
   <p class="err" id="lobby-err"></p>
+</div>
+
+<!-- ═══ ROOM BROWSER ═══ -->
+<div class="screen" id="room-browser-screen" style="max-width:680px">
+  <button class="btn-sec btn-sm" style="align-self:flex-start" onclick="showScreen('lobby-screen')">← Back</button>
+  <h2 style="margin:6px 0 2px">🌍 Public Rooms</h2>
+  <p style="color:#888;font-size:.85rem;margin:0 0 10px">Join any open room below. Private rooms aren't listed — you need a code to join those.</p>
+  <div style="display:flex;gap:8px;margin-bottom:8px">
+    <button onclick="loadPublicRooms()" class="btn-sec btn-sm">🔄 Refresh</button>
+  </div>
+  <div id="room-browser-list"></div>
+  <p class="err" id="room-browser-err"></p>
 </div>
 
 <!-- ═══ LEADERBOARD ═══ -->
@@ -424,6 +450,11 @@
     <div class="field-label" style="margin-bottom:6px">Your Deck</div>
     <div class="deck-sel" id="bot-deck-sel"></div>
   </div>
+  <!-- Turn timer -->
+  <div>
+    <div class="field-label" style="margin-bottom:6px">⏱️ Turn Timer</div>
+    <div class="timer-sel" id="bot-timer-sel" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>
   <button onclick="startBot()">Start Game</button>
   <p class="err" id="bot-err"></p>
 </div>
@@ -459,6 +490,7 @@
   <div><div class="field-label">Opponent's Field</div><div class="field" id="opp-field"></div></div>
   <div class="mid-bar">
     <div class="turn-ind theirs" id="turn-ind">Waiting...</div>
+    <div id="turn-timer" style="display:none;font-family:monospace;font-weight:bold;font-size:1rem;padding:4px 10px;border-radius:8px;background:#222;color:#ffaa00;border:1px solid #ffaa00">⏱️ --</div>
     <div class="msg-bar" id="msg-bar">...</div>
   </div>
   <div><div class="field-label">Your Field</div><div class="field" id="your-field"></div></div>
@@ -1228,8 +1260,47 @@ function buildDeckSelector(containerId, key) {
 // ═══════════════════════════════════════════════════════
 //  ONLINE
 // ═══════════════════════════════════════════════════════
+// Turn timer + visibility state (shared across lobby + bot)
+let selectedTimer = { lobby: 60, bot: 60 };  // default 60s
+let selectedVis   = 'public';
+const TIMER_OPTIONS = [
+  { v: 30,  label: '30s ⚡' },
+  { v: 60,  label: '60s' },
+  { v: 180, label: '3 min 🐢' },
+  { v: 0,   label: 'Off' },
+];
+
+function buildTimerSelector(containerId, key) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  TIMER_OPTIONS.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-sec btn-sm timer-btn' + (selectedTimer[key] === opt.v ? ' selected' : '');
+    btn.textContent = opt.label;
+    btn.style.flex = '1';
+    btn.style.minWidth = '70px';
+    btn.onclick = () => {
+      selectedTimer[key] = opt.v;
+      el.querySelectorAll('.timer-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    };
+    el.appendChild(btn);
+  });
+}
+
+function selectVis(v) {
+  selectedVis = v;
+  document.querySelectorAll('#lobby-vis-sel .vis-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.vis === v);
+  });
+}
+
 function goOnline() {
   buildDeckSelector('lobby-deck-sel', 'lobby');
+  buildTimerSelector('lobby-timer-sel', 'lobby');
+  selectVis(selectedVis);
   if (session.username) document.getElementById('lobby-name').value = session.username;
   showScreen('lobby-screen');
 }
@@ -1237,7 +1308,11 @@ function goOnline() {
 function createRoom() {
   const name = document.getElementById('lobby-name').value.trim();
   if (!name) { document.getElementById('lobby-err').textContent='Enter a name.'; return; }
-  socket.emit('create_room', { name, deck: deckSelections.lobby, username: session.username });
+  socket.emit('create_room', {
+    name, deck: deckSelections.lobby, username: session.username,
+    turn_limit: selectedTimer.lobby || null,
+    is_public:  selectedVis === 'public'
+  });
 }
 function joinRoom() {
   const name = document.getElementById('lobby-name').value.trim();
@@ -1247,12 +1322,49 @@ function joinRoom() {
   socket.emit('join_game', { name, code, deck: deckSelections.lobby, username: session.username });
 }
 
+function joinPublicRoom(code) {
+  const name = document.getElementById('lobby-name').value.trim() || session.username || 'Player';
+  socket.emit('join_game', { name, code, deck: deckSelections.lobby, username: session.username });
+}
+
+function openRoomBrowser() {
+  showScreen('room-browser-screen');
+  loadPublicRooms();
+}
+
+function loadPublicRooms() {
+  document.getElementById('room-browser-list').innerHTML = '<p style="color:#888;text-align:center;padding:20px">Loading…</p>';
+  socket.emit('list_public_rooms', {});
+}
+
+socket.on('public_rooms', d => {
+  const list = document.getElementById('room-browser-list');
+  const rooms = (d && d.rooms) || [];
+  if (!rooms.length) {
+    list.innerHTML = '<p style="color:#888;text-align:center;padding:30px">No public rooms open right now. Create one!</p>';
+    return;
+  }
+  const fmtTimer = t => (!t ? 'No timer' : (t >= 60 ? `${t/60} min` : `${t}s`));
+  list.innerHTML = rooms.map(r => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#181818;border:1px solid #333;border-radius:10px;margin-bottom:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:bold;color:#fff">${(r.host_name||'Host').replace(/[<>&]/g,'')}</div>
+        <div style="font-size:.78rem;color:#888">Deck: ${r.deck||'basic'} · ⏱️ ${fmtTimer(r.turn_limit)} · Code: <span style="font-family:monospace;color:#ffaa00">${r.code}</span></div>
+      </div>
+      <button class="btn-gold btn-sm" onclick="joinPublicRoom('${r.code}')">Join</button>
+    </div>
+  `).join('');
+});
+
 socket.on('room_created', d => {
   roomCode = d.code;
   document.getElementById('waiting-code').textContent = d.code;
   showScreen('waiting-screen');
 });
-socket.on('room_error', d => { document.getElementById('lobby-err').textContent = d.msg; });
+socket.on('room_error', d => {
+  const el = document.getElementById('lobby-err') || document.getElementById('room-browser-err');
+  if (el) el.textContent = d.msg;
+});
 
 // ═══════════════════════════════════════════════════════
 //  BOT
@@ -1265,6 +1377,7 @@ function selectDiff(d) {
 
 function goBotScreen() {
   buildDeckSelector('bot-deck-sel', 'bot');
+  buildTimerSelector('bot-timer-sel', 'bot');
   if (session.username) document.getElementById('bot-name').value = session.username;
   showScreen('bot-screen');
 }
@@ -1275,7 +1388,8 @@ function startBot() {
   if (!name) { document.getElementById('bot-err').textContent='Enter a name.'; return; }
   socket.emit('start_bot_game', {
     name, difficulty: selectedDiff, deck: deckSelections.bot,
-    username: session.username
+    username: session.username,
+    turn_limit: selectedTimer.bot || null
   });
 }
 
@@ -1413,14 +1527,47 @@ function renderState(s) {
   // Direct attack allowed if:
   //   - card has explicit wrath_direct ability, OR
   //   - the enemy field is completely empty (no living cards)
-  // Sweep (side_aoe) can never direct-attack.
+  // Blocked on first turn. Sweep (side_aoe) can never direct-attack.
   const oppFieldEmpty = !(s.opp_field || []).some(c => c !== null);
   const hasSweep      = !!selCard && (selCard.specials||[]).some(sp => sp.id==='side_aoe');
   const hasWrath      = !!selCard && (selCard.specials||[]).some(sp => sp.id==='wrath_direct');
-  const canDirect     = !!selCard && !hasSweep && (hasWrath || oppFieldEmpty);
+  const myFirstTurn   = !!(s.first_turns && s.first_turns[s.your_index]);
+  const canDirect     = !!selCard && !hasSweep && !myFirstTurn && (hasWrath || oppFieldEmpty);
   document.getElementById('btn-direct').disabled = !canDirect;
 
+  // Turn timer display
+  updateTurnTimer(s);
+
   if (s.winner) showWinner(s.winner, s.your_name);
+
+}
+
+// ═══════════════════════════════════════════════════════
+//  TURN TIMER
+// ═══════════════════════════════════════════════════════
+let _turnTimerInterval = null;
+let _turnTimerState    = { deadline: null, limit: null, current_turn: null, your_index: null };
+function updateTurnTimer(s) {
+  _turnTimerState = {
+    deadline: s.turn_deadline || null,
+    limit:    s.turn_limit || null,
+    current_turn: s.current_turn,
+    your_index:   s.your_index,
+  };
+  if (!_turnTimerInterval) _turnTimerInterval = setInterval(_tickTimer, 250);
+  _tickTimer();
+}
+function _tickTimer() {
+  const el = document.getElementById('turn-timer');
+  if (!el) return;
+  const st = _turnTimerState;
+  if (!st.limit || !st.deadline) { el.style.display = 'none'; return; }
+  const remaining = Math.max(0, st.deadline - (Date.now()/1000));
+  el.style.display = '';
+  const isYours = st.current_turn === st.your_index;
+  el.style.color       = remaining < 10 ? '#ff3333' : (isYours ? '#ffaa00' : '#888');
+  el.style.borderColor = remaining < 10 ? '#ff3333' : (isYours ? '#ffaa00' : '#444');
+  el.textContent = `⏱️ ${isYours ? 'Your turn' : 'Their turn'} — ${Math.ceil(remaining)}s`;
 }
 
 // ═══════════════════════════════════════════════════════
