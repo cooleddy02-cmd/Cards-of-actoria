@@ -96,7 +96,7 @@ CARDLIST = [
         {"id":"no_revive","name":"No Revive","desc":"Cannot be revived."},
         {"id":"no_sacrifice","name":"No Sacrifice","desc":"Cannot be sacrificed."}]},
     {"name":"Amegma",       "atk":2,"def":2, "specials":[
-        {"id":"amegma_free_attack","name":"Free Aim","desc":"Can attack the player directly even if the opponent has cards on the field."},
+        {"id":"amegma_free_attack","name":"Free Aim","desc":"Can attack any enemy card on the field, ignoring slot lock."},
         {"id":"amegma_block_break","name":"Block Crush","desc":"When attacking a card with block: removes all block but deals no damage that attack."}]},
     {"name":"Ice",          "atk":1,"def":3, "specials":[
         {"id":"ice_counter_freeze","name":"Ice Shield","desc":"When hit: 50% chance to freeze the attacker until your next turn ends."},
