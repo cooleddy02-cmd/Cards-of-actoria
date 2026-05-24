@@ -47,6 +47,7 @@ TITLE_TIERS = [
     ('Veteran',    '🏆', '#ffcc44',  30,   2.0),
     ('Champion',   '👑', '#ff9933',  50,   3.0),
     ('Legend',     '⭐', '#ff44ff', 100,   5.0),
+    ('Gooner',     '🍆', '#aa44ff', 250,  10.0),
 ]
 SPECIAL_TITLES = {
     'owner':    {'name': 'Owner',    'emoji': '🔱', 'color': '#33ff66', 'mult': 100.0},
