@@ -612,12 +612,12 @@ def _exec_attack(room, room_code, pi, ai, ti):
     # A card in slot N can ONLY hit the opposing slot N (must match ai).
     # Direct attack on the player requires an explicit direct-attack ability
     # (wrath_direct / amegma_free_attack) — empty opposing slot does NOT enable it.
-    if ti is not None and ti != ai:
+    if ti is not None and ti != ai and not _has(atk, 'amegma_free_attack'):
         room['message'] = f"⛔ {atk['name']} (slot {ai+1}) can only hit the card in slot {ai+1}."
         room['phase'] = 'attack'; broadcast_state(room_code); return
     if ti is None:
         enemy_empty = (_live_count(dpl['field']) == 0)
-        has_direct  = _has(atk, 'wrath_direct') or _has(atk, 'amegma_free_attack')
+        has_direct  = _has(atk, 'wrath_direct')
         # Sweep cards explicitly can never hit the player directly.
         if _has(atk, 'side_aoe'):
             room['message'] = f"⛔ {atk['name']} (Sweep) cannot deal direct damage to the player."
@@ -800,7 +800,7 @@ def _bot_attacks(bot, human, diff):
     OR the entire enemy field is empty. Sweep (side_aoe) never direct-attacks.
     Special-targeting abilities (trio/AoE) are unaffected — _exec_attack handles them."""
     attacks = []
-    has_direct_ability = lambda c: _has(c, 'wrath_direct') or _has(c, 'amegma_free_attack')
+    has_direct_ability = lambda c: _has(c, 'wrath_direct')
     enemy_empty = (_live_count(human['field']) == 0)
     for ai, card in enumerate(bot['field']):
         if card is None: continue
