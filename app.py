@@ -628,7 +628,8 @@ def _exec_attack(room, room_code, pi, ai, ti):
         enemy_empty = (_live_count(dpl['field']) == 0)
         has_direct  = _has(atk, 'wrath_direct')
         # No direct attacks on the first turn (both players are protected).
-        if room['first_turns'][pi]:
+        # turn_count <= 1 covers both players' very first active turn.
+        if room.get('turn_count', 0) <= 1:
             room['message'] = "⛔ Direct attacks aren't allowed on the first turn."
             room['phase'] = 'attack'; broadcast_state(room_code); return
         # Sweep cards explicitly can never hit the player directly.
@@ -807,7 +808,7 @@ def _bot_plays(bot, human, diff):
         scored = sorted(range(len(hand)), key=lambda i: sc(hand[i]), reverse=True)
         return sorted(scored[:min(2, len(scored))], reverse=True)
 
-def _bot_attacks(bot, human, diff):
+def _bot_attacks(bot, human, diff, room=None):
     """Slot-locked: card in slot N hits opposing slot N.
     Direct attack on the player when: card has wrath_direct/amegma_free_attack,
     OR the entire enemy field is empty. Sweep (side_aoe) never direct-attacks.
@@ -816,7 +817,9 @@ def _bot_attacks(bot, human, diff):
     has_direct_ability = lambda c: _has(c, 'wrath_direct')
     enemy_empty = (_live_count(human['field']) == 0)
     # First-turn rule: bot also cannot direct-attack on its first turn.
-    first_turn_protected = bool(room and room.get('first_turns', [False, False])[1])
+    # Use turn_count (<= 1 means first turn of either player) since first_turns[]
+    # is cleared in _do_end_turn before the player actually acts.
+    first_turn_protected = bool(room and room.get('turn_count', 0) <= 1)
     for ai, card in enumerate(bot['field']):
         if card is None: continue
         if card.get('attacked'): continue
@@ -869,7 +872,7 @@ def bot_execute_turn(room_code):
     socketio.sleep(1.0)
 
     # Attack phase
-    attacks = _bot_attacks(bot, human, diff)
+    attacks = _bot_attacks(bot, human, diff, room)
     for ai, ti in attacks:
         room = rooms.get(room_code)
         if not room or room.get('state') == 'finished': return
@@ -962,6 +965,11 @@ def _arm_turn_timer(room_code):
     socketio.start_background_task(_watchdog)
 
 def _do_end_turn(room, room_code, pi):
+    # Idempotency guard: a manual end_turn and the timer watchdog can both reach
+    # here for the same turn. After the first call advances current_turn, the
+    # second call will be a no-op.
+    if room.get('state') == 'finished': return
+    if room.get('current_turn') != pi:    return
     players = room['players']
     _tick_freeze(room, pi)
     for c in players[pi]['field']:
