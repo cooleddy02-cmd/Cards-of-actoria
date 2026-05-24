@@ -1345,15 +1345,22 @@ socket.on('public_rooms', d => {
     return;
   }
   const fmtTimer = t => (!t ? 'No timer' : (t >= 60 ? `${t/60} min` : `${t}s`));
-  list.innerHTML = rooms.map(r => `
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#181818;border:1px solid #333;border-radius:10px;margin-bottom:8px">
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:bold;color:#fff">${(r.host_name||'Host').replace(/[<>&]/g,'')}</div>
-        <div style="font-size:.78rem;color:#888">Deck: ${r.deck||'basic'} · ⏱️ ${fmtTimer(r.turn_limit)} · Code: <span style="font-family:monospace;color:#ffaa00">${r.code}</span></div>
-      </div>
-      <button class="btn-gold btn-sm" onclick="joinPublicRoom('${r.code}')">Join</button>
-    </div>
-  `).join('');
+  const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+  ));
+  const safeCode = c => /^[A-Z0-9]{1,8}$/.test(c||'') ? c : '';
+  list.innerHTML = rooms.map(r => {
+    const code = safeCode(r.code);
+    if (!code) return '';
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#181818;border:1px solid #333;border-radius:10px;margin-bottom:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:bold;color:#fff">${esc(r.host_name||'Host')}</div>
+          <div style="font-size:.78rem;color:#888">Deck: ${esc(r.deck||'basic')} · ⏱️ ${esc(fmtTimer(r.turn_limit))} · Code: <span style="font-family:monospace;color:#ffaa00">${esc(code)}</span></div>
+        </div>
+        <button class="btn-gold btn-sm" onclick="joinPublicRoom('${code}')">Join</button>
+      </div>`;
+  }).join('');
 });
 
 socket.on('room_created', d => {
