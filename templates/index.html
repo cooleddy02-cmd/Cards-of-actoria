@@ -1410,10 +1410,14 @@ function renderState(s) {
   document.getElementById('btn-end-turn').disabled = !inAttack;
   document.getElementById('btn-spec-summon').disabled = !(inPlay && s.cards_played < 2);
   const selCard = (inAttack && selectedAttacker!==null) ? s.your_field[selectedAttacker] : null;
-  // Direct attack requires an explicit direct-attack ability — empty opposing slot does NOT enable it.
-  const canDirect = !!selCard && (selCard.specials||[]).some(
-    sp => sp.id==='wrath_direct' || sp.id==='amegma_free_attack'
-  );
+  // Direct attack allowed if:
+  //   - card has explicit wrath_direct ability, OR
+  //   - the enemy field is completely empty (no living cards)
+  // Sweep (side_aoe) can never direct-attack.
+  const oppFieldEmpty = !(s.opp_field || []).some(c => c !== null);
+  const hasSweep      = !!selCard && (selCard.specials||[]).some(sp => sp.id==='side_aoe');
+  const hasWrath      = !!selCard && (selCard.specials||[]).some(sp => sp.id==='wrath_direct');
+  const canDirect     = !!selCard && !hasSweep && (hasWrath || oppFieldEmpty);
   document.getElementById('btn-direct').disabled = !canDirect;
 
   if (s.winner) showWinner(s.winner, s.your_name);
