@@ -274,7 +274,16 @@ def new_room():
         'pending_action': None, 'message': 'Waiting for opponent...',
         'winner': None, 'turn_count': 0,
         'is_bot': False, 'bot_difficulty': None, 'human_username': None,
+        'turn_limit': None, 'turn_deadline': None, '_turn_id': 0,
+        'is_public': False, 'host_name': None,
     }
+
+def _parse_turn_limit(v):
+    """Accept 30/60/180 (or None / 0 / 'off') and return int seconds or None."""
+    if v in (None, '', 0, '0', 'off', 'none', 'null'): return None
+    try: n = int(v)
+    except (TypeError, ValueError): return None
+    return n if n in (30, 60, 180) else None
 
 # ═══════════════════════════════════════════════════════════════
 #  DESTROY SYSTEM
@@ -618,6 +627,10 @@ def _exec_attack(room, room_code, pi, ai, ti):
     if ti is None:
         enemy_empty = (_live_count(dpl['field']) == 0)
         has_direct  = _has(atk, 'wrath_direct')
+        # No direct attacks on the first turn (both players are protected).
+        if room['first_turns'][pi]:
+            room['message'] = "⛔ Direct attacks aren't allowed on the first turn."
+            room['phase'] = 'attack'; broadcast_state(room_code); return
         # Sweep cards explicitly can never hit the player directly.
         if _has(atk, 'side_aoe'):
             room['message'] = f"⛔ {atk['name']} (Sweep) cannot deal direct damage to the player."
@@ -802,6 +815,8 @@ def _bot_attacks(bot, human, diff):
     attacks = []
     has_direct_ability = lambda c: _has(c, 'wrath_direct')
     enemy_empty = (_live_count(human['field']) == 0)
+    # First-turn rule: bot also cannot direct-attack on its first turn.
+    first_turn_protected = bool(room and room.get('first_turns', [False, False])[1])
     for ai, card in enumerate(bot['field']):
         if card is None: continue
         if card.get('attacked'): continue
@@ -819,6 +834,9 @@ def _bot_attacks(bot, human, diff):
             attacks.append((ai, ai))
         elif _has(card, 'side_aoe'):
             # Sweep cards can't hit the player even if field is empty
+            continue
+        elif first_turn_protected:
+            # No direct attacks on first turn
             continue
         elif has_direct_ability(card) or enemy_empty:
             # Either explicit direct-attack ability, or enemy field is completely empty
@@ -908,11 +926,40 @@ def broadcast_state(room_code):
             'is_bot_game':      room.get('is_bot', False),
             'gem_reward':       gem_reward,
             'bot_difficulty':   room.get('bot_difficulty'),
+            'turn_limit':       room.get('turn_limit'),
+            'turn_deadline':    room.get('turn_deadline'),
+            'first_turns':      room.get('first_turns', [False, False]),
         }, to=player['sid'])
 
 # ═══════════════════════════════════════════════════════════════
 #  SHARED END TURN
 # ═══════════════════════════════════════════════════════════════
+
+def _arm_turn_timer(room_code):
+    """Set turn_deadline = now + turn_limit and spawn a watchdog that auto-ends
+    the turn if the player runs out of time. Each turn change bumps `_turn_id`,
+    so a stale watchdog from a previous turn is a no-op."""
+    room = rooms.get(room_code)
+    if not room or room.get('state') == 'finished': return
+    limit = room.get('turn_limit')
+    room['_turn_id'] = int(room.get('_turn_id', 0)) + 1
+    if not limit:
+        room['turn_deadline'] = None
+        return
+    room['turn_deadline'] = time.time() + limit
+    my_turn_id = room['_turn_id']
+    my_player  = room.get('current_turn', 0)
+    def _watchdog():
+        socketio.sleep(limit + 0.5)
+        r = rooms.get(room_code)
+        if not r or r.get('state') == 'finished': return
+        if r.get('_turn_id') != my_turn_id: return  # turn already changed
+        if r.get('current_turn') != my_player: return
+        # Force-end the turn for whoever timed out.
+        r['phase'] = 'attack'  # _do_end_turn requires attack phase semantics; ok to override here
+        r['message'] = f"⏰ {r['players'][my_player]['name']} ran out of time — turn skipped."
+        _do_end_turn(r, room_code, my_player)
+    socketio.start_background_task(_watchdog)
 
 def _do_end_turn(room, room_code, pi):
     players = room['players']
@@ -964,6 +1011,12 @@ def _do_end_turn(room, room_code, pi):
 
     # Gem award / loss recording is handled inside _check_win → _maybe_award_bot_gems
     # (idempotent via room['gems_awarded'])
+
+    # Arm turn timer for the next player (skip if the next player is the bot or game ended).
+    if not room.get('winner') and not (room.get('is_bot') and nt == 1):
+        _arm_turn_timer(room_code)
+    else:
+        room['turn_deadline'] = None
 
     broadcast_state(room_code)
 
@@ -1323,6 +1376,24 @@ def on_buy_deck(data):
     save_users(users)
     emit('buy_ok', {'gems': u['gems'], 'owned_decks': u['owned_decks']})
 
+@socketio.on('list_public_rooms')
+def on_list_public_rooms(data=None):
+    out = []
+    for code, r in rooms.items():
+        if r.get('is_bot'): continue
+        if not r.get('is_public'): continue
+        if r.get('state') != 'waiting': continue
+        if len(r.get('players', [])) >= 2: continue
+        decks = r.get('player_deck', {})
+        out.append({
+            'code': code,
+            'host_name': r.get('host_name') or (r['players'][0]['name'] if r.get('players') else 'Host'),
+            'deck': decks.get(0, 'basic'),
+            'turn_limit': r.get('turn_limit'),
+        })
+    out.sort(key=lambda x: x['code'])
+    emit('public_rooms', {'rooms': out})
+
 @socketio.on('create_room')
 def on_create_room(data):
     name     = data.get('name','Player').strip() or 'Player'
@@ -1339,6 +1410,9 @@ def on_create_room(data):
     })
     room['player_deck']     = {0: deck}
     room['human_username']  = username
+    room['turn_limit']      = _parse_turn_limit(data.get('turn_limit'))
+    room['is_public']       = bool(data.get('is_public'))
+    room['host_name']       = name
     rooms[code] = room
     sio_join_room(code)
     emit('room_created', {'code': code})
@@ -1374,7 +1448,9 @@ def on_join_game(data):
             'your_index': i, 'room_code': code,
             'first_player': room['players'][first]['name'],
             'coin': 'heads' if first == 0 else 'tails',
+            'turn_limit': room.get('turn_limit'),
         }, to=p['sid'])
+    _arm_turn_timer(code)
     broadcast_state(code)
 
 @socketio.on('start_bot_game')
@@ -1398,6 +1474,7 @@ def on_start_bot_game(data):
          'hand': deal_hand(bot_deck), 'field': [], 'hp': 20},
     ]
     room['player_deck'] = {0: deck, 1: bot_deck}
+    room['turn_limit']  = _parse_turn_limit(data.get('turn_limit'))
     first = random.randint(0, 1)
     room.update({'current_turn': first, 'state': 'playing',
                  'phase': 'play', 'cards_played': 0,
@@ -1410,7 +1487,11 @@ def on_start_bot_game(data):
         'coin': 'heads' if first == 0 else 'tails',
         'is_bot_game': True, 'difficulty': difficulty,
         'gem_reward': GEM_REWARDS.get(difficulty, 0),
+        'turn_limit': room.get('turn_limit'),
     })
+    # Only arm timer when it's the human's turn (bot doesn't need a clock).
+    if first == 0:
+        _arm_turn_timer(code)
     broadcast_state(code)
     if first == 1:
         socketio.start_background_task(bot_execute_turn, code)
