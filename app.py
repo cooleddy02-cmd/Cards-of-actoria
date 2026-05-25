@@ -47,11 +47,11 @@ TITLE_TIERS = [
     ('Veteran',    '🏆', '#ffcc44',  30,   2.0),
     ('Champion',   '👑', '#ff9933',  50,   3.0),
     ('Legend',     '⭐', '#ff44ff', 100,   5.0),
-    ('Gooner',     '🍆', '#aa44ff', 250,  10.0),
+
 ]
 SPECIAL_TITLES = {
-    'owner':    {'name': 'Owner',    'emoji': '🔱', 'color': '#33ff66', 'mult': 100.0},
-    'co_owner': {'name': 'Co-Owner', 'emoji': '💎', 'color': '#ff3333', 'mult': 100.0},
+    'owner':    {'name': 'Owner',    'emoji': '🔱', 'color': '#33ff66', 'mult': 10000000.0},
+    'co_owner': {'name': 'Co-Owner', 'emoji': '💎', 'color': '#ff3333', 'mult': 10000000.0},
 }
 
 def _title_from_key(key):
@@ -1420,7 +1420,8 @@ def on_create_room(data):
     room['player_deck']     = {0: deck}
     room['human_username']  = username
     room['turn_limit']      = _parse_turn_limit(data.get('turn_limit'))
-    room['is_public']       = bool(data.get('is_public'))
+    # Default to public when the client omits the field (older cached clients).
+    room['is_public']       = bool(data.get('is_public', True))
     room['host_name']       = name
     rooms[code] = room
     sio_join_room(code)
