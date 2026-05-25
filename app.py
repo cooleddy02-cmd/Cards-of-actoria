@@ -689,10 +689,10 @@ def _exec_attack(room, room_code, pi, ai, ti):
         tgt['frozen'] = True; tgt['freeze_by'] = pi; tgt['freeze_turns'] = 1
         msgs.append(f"❄️ {tgt['name']} frozen!")
 
-    # Ice counter-freeze (Ice Shield)
-    if _has(tgt, 'ice_counter_freeze') and actual > 0 and not atk.get('frozen') and random.random() < 0.5:
+    # Ice counter-freeze (Ice Shield) — always freezes attacker so it skips its next turn
+    if _has(tgt, 'ice_counter_freeze') and actual > 0 and not atk.get('frozen'):
         atk['frozen'] = True; atk['freeze_by'] = 1 - pi; atk['freeze_turns'] = 1
-        msgs.append(f"❄️ {tgt['name']} counter-froze {atk['name']}!")
+        msgs.append(f"❄️ {tgt['name']} froze {atk['name']}!")
 
     # Phoenix burn
     if _has(atk, 'phoenix_burn'):
