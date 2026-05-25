@@ -629,7 +629,7 @@ def _exec_attack(room, room_code, pi, ai, ti):
         # Per-slot rule: card in slot N can direct-attack when opposing slot N is empty.
         opp_slot_card    = dpl['field'][ai] if ai < len(dpl['field']) else None
         opp_slot_empty   = opp_slot_card is None
-        has_direct       = _has(atk, 'wrath_direct')
+        has_direct       = _has(atk, 'wrath_direct') or _has(atk, 'amegma_free_attack')
         # No direct attacks on the first turn (both players are protected).
         if room.get('turn_count', 0) <= 1:
             room['message'] = "⛔ Direct attacks aren't allowed on the first turn."
@@ -815,7 +815,7 @@ def _bot_attacks(bot, human, diff, room=None):
     that card may direct-attack the player. Wrath_direct lets a card direct-attack
     regardless. Sweep (side_aoe) never direct-attacks. First-turn protected."""
     attacks = []
-    has_direct_ability = lambda c: _has(c, 'wrath_direct')
+    has_direct_ability = lambda c: _has(c, 'wrath_direct') or _has(c, 'amegma_free_attack')
     first_turn_protected = bool(room and room.get('turn_count', 0) <= 1)
     for ai, card in enumerate(bot['field']):
         if card is None: continue
