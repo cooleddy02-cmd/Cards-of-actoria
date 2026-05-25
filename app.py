@@ -761,8 +761,9 @@ def _check_deaths(room, room_code, pi):
 # ═══════════════════════════════════════════════════════════════
 
 def _defender_has_qe(room):
-    if room.get('is_bot'): return False
     di = 1 - room['current_turn']
+    # In bot games, only the human (player 0) can use Quick Effect; bot never does.
+    if room.get('is_bot') and di != 0: return False
     if room['quick_effect_used'][di]: return False
     return any(c['name'] == 'Clock' and not c.get('frozen')
                for c in room['players'][di]['hand'])
