@@ -760,13 +760,24 @@ def _check_deaths(room, room_code, pi):
 #  HAND TRAP
 # ═══════════════════════════════════════════════════════════════
 
-def _defender_has_qe(room):
+def _defender_has_clock_qe(room):
     di = 1 - room['current_turn']
-    # In bot games, only the human (player 0) can use Quick Effect; bot never does.
     if room.get('is_bot') and di != 0: return False
     if room['quick_effect_used'][di]: return False
     return any(c['name'] == 'Clock' and not c.get('frozen')
                for c in room['players'][di]['hand'])
+
+def _defender_has_rewind_qe(room):
+    """Rewind on defender's field with cooldown ready → Time Steal available as QE."""
+    di = 1 - room['current_turn']
+    if room.get('is_bot') and di != 0: return False
+    defender = room['players'][di]
+    if room['turn_count'] - defender.get('last_rewind_turn', -99) < 2: return False
+    return any(c is not None and _has(c, 'rewind_quick') and not c.get('frozen')
+               for c in defender['field'])
+
+def _defender_has_qe(room):
+    return _defender_has_clock_qe(room) or _defender_has_rewind_qe(room)
 
 def _open_hand_trap(room, room_code, pending):
     room['pending_action'] = pending
@@ -918,6 +929,8 @@ def broadcast_state(room_code):
             'winner':           room.get('winner'),
             'hand_trap_prompt': is_ht,
             'pending_desc':     _pdesc(room.get('pending_action')),
+            'qe_clock_avail':   is_ht and _defender_has_clock_qe(room),
+            'qe_rewind_avail':  is_ht and _defender_has_rewind_qe(room),
             'is_bot_game':      room.get('is_bot', False),
             'gem_reward':       gem_reward,
             'bot_difficulty':   room.get('bot_difficulty'),
@@ -1572,15 +1585,36 @@ def on_qe_response(data):
     pi = next((i for i,p in enumerate(players) if p['sid']==request.sid), None)
     if pi is None or pi == room['current_turn']: return
     pending = room.pop('pending_action', None)
-    if use and pending:
+    # Time Steal via Rewind on field
+    if use == 'rewind' and pending and _defender_has_rewind_qe(room):
+        defender = players[pi]; opp_pi = 1 - pi
+        rfi = next((i for i,c in enumerate(defender['field'])
+                    if c is not None and _has(c, 'rewind_quick')), None)
+        if rfi is not None:
+            defender['field'][rfi] = None
+        defender['hp'] -= 3
+        defender['last_rewind_turn'] = room['turn_count']
+        defender['force_no_draw']    = True
+        defender['no_damage_turn']   = True
+        room['quick_effect_used'][pi]      = True
+        room['quick_effect_used'][opp_pi]  = False
+        room['current_turn']  = pi
+        room['phase']         = 'play'
+        room['cards_played']  = 0
+        room['turn_count']    = room.get('turn_count', 0) + 1
+        room['message']       = f"⏳ Time Steal! {defender['name']} stole the turn (no draw, no damage)."
+        _check_win(room, players)
+        _arm_turn_timer(room_code)
+        broadcast_state(room_code); return
+    if use and use != 'rewind' and pending and _defender_has_clock_qe(room):
         hand = players[pi]['hand']
         for i, c in enumerate(hand):
             if c['name'] == 'Clock': hand.pop(i); break
         room['quick_effect_used'][pi] = True
         room['phase']   = 'play' if pending['type']=='play_card' else 'attack'
         room['message'] = f"❄️ Clock's Quick Effect! Action cancelled."
-        broadcast_state(room_code)
-    elif pending:
+        broadcast_state(room_code); return
+    if pending:
         if pending['type'] == 'play_card':
             _exec_play_card(room, room_code, pending['player_index'], pending['card_index'], pending.get('slot_index'))
         else:
@@ -1612,19 +1646,7 @@ def on_use_ability(data):
     player = players[pi]; opp = players[1-pi]
 
     if ability_id == 'rewind_quick':
-        rfi = next((i for i,c in enumerate(player['field']) if c is not None and c.get('uid')==card_uid and _has(c,'rewind_quick')), None)
-        if rfi is None: emit('error_msg',{'msg':'Rewind not on your field.'}); return
-        rc = player['field'][rfi]
-        if rc.get('frozen'): emit('error_msg',{'msg':'Frozen.'}); return
-        if room['turn_count'] - player.get('last_rewind_turn', -99) < 2:
-            emit('error_msg',{'msg':'Time Steal on cooldown (once per 2 turns).'}); return
-        player['field'][rfi] = None
-        player['hp'] -= 3
-        player['bonus_turn_pending'] = True
-        player['last_rewind_turn'] = room['turn_count']
-        room['message'] = f"⏳ Time Steal! {player['name']} sacrifices Rewind (-3 HP) for an extra turn."
-        _check_win(room, players)
-        broadcast_state(room_code); return
+        emit('error_msg',{'msg':"Time Steal is a Quick Effect — use it during the opponent's turn."}); return
 
     if ability_id == 'circus_bounce':
         _, cfi, ccard = _find_by_uid(players, card_uid)
