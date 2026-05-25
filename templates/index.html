@@ -1539,7 +1539,7 @@ function renderState(s) {
   const oppSlotEmpty  = !!selCard && selectedAttacker !== null
                         && !((s.opp_field || [])[selectedAttacker]);
   const hasSweep      = !!selCard && (selCard.specials||[]).some(sp => sp.id==='side_aoe');
-  const hasWrath      = !!selCard && (selCard.specials||[]).some(sp => sp.id==='wrath_direct');
+  const hasWrath      = !!selCard && (selCard.specials||[]).some(sp => sp.id==='wrath_direct' || sp.id==='amegma_free_attack');
   const myFirstTurn   = !!(s.first_turns && s.first_turns[s.your_index]);
   const canDirect     = !!selCard && !hasSweep && !myFirstTurn && (hasWrath || oppSlotEmpty);
   document.getElementById('btn-direct').disabled = !canDirect;
