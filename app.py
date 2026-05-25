@@ -626,10 +626,11 @@ def _exec_attack(room, room_code, pi, ai, ti):
         room['message'] = f"⛔ {atk['name']} (slot {ai+1}) can only hit the card in slot {ai+1}."
         room['phase'] = 'attack'; broadcast_state(room_code); return
     if ti is None:
-        enemy_empty = (_live_count(dpl['field']) == 0)
-        has_direct  = _has(atk, 'wrath_direct')
+        # Per-slot rule: card in slot N can direct-attack when opposing slot N is empty.
+        opp_slot_card    = dpl['field'][ai] if ai < len(dpl['field']) else None
+        opp_slot_empty   = opp_slot_card is None
+        has_direct       = _has(atk, 'wrath_direct')
         # No direct attacks on the first turn (both players are protected).
-        # turn_count <= 1 covers both players' very first active turn.
         if room.get('turn_count', 0) <= 1:
             room['message'] = "⛔ Direct attacks aren't allowed on the first turn."
             room['phase'] = 'attack'; broadcast_state(room_code); return
@@ -637,8 +638,8 @@ def _exec_attack(room, room_code, pi, ai, ti):
         if _has(atk, 'side_aoe'):
             room['message'] = f"⛔ {atk['name']} (Sweep) cannot deal direct damage to the player."
             room['phase'] = 'attack'; broadcast_state(room_code); return
-        if not has_direct and not enemy_empty:
-            room['message'] = f"⛔ {atk['name']} can only swing at the player when the enemy field is empty."
+        if not has_direct and not opp_slot_empty:
+            room['message'] = f"⛔ {atk['name']} can only swing at the player when opposing slot {ai+1} is empty."
             room['phase'] = 'attack'; broadcast_state(room_code); return
         dpl['hp'] -= atk['atk']
         msgs.append(f"{atk['name']} deals {atk['atk']} direct damage!")
@@ -810,42 +811,31 @@ def _bot_plays(bot, human, diff):
         return sorted(scored[:min(2, len(scored))], reverse=True)
 
 def _bot_attacks(bot, human, diff, room=None):
-    """Slot-locked: card in slot N hits opposing slot N.
-    Direct attack on the player when: card has wrath_direct/amegma_free_attack,
-    OR the entire enemy field is empty. Sweep (side_aoe) never direct-attacks.
-    Special-targeting abilities (trio/AoE) are unaffected — _exec_attack handles them."""
+    """Slot-locked: card in slot N hits opposing slot N. If opposing slot N is empty,
+    that card may direct-attack the player. Wrath_direct lets a card direct-attack
+    regardless. Sweep (side_aoe) never direct-attacks. First-turn protected."""
     attacks = []
     has_direct_ability = lambda c: _has(c, 'wrath_direct')
-    enemy_empty = (_live_count(human['field']) == 0)
-    # First-turn rule: bot also cannot direct-attack on its first turn.
-    # Use turn_count (<= 1 means first turn of either player) since first_turns[]
-    # is cleared in _do_end_turn before the player actually acts.
     first_turn_protected = bool(room and room.get('turn_count', 0) <= 1)
     for ai, card in enumerate(bot['field']):
         if card is None: continue
         if card.get('attacked'): continue
-        # Self-damage suicide guard (Hate cards)
         if _has(card, 'hate_selfdmg') and bot['hp'] <= card['atk']:
             continue
-        # Easy = sometimes skips; medium/hard always swing if possible.
         if diff == 'easy' and random.random() >= 0.6:
             continue
         opp_card = human['field'][ai] if ai < len(human['field']) else None
         if opp_card is not None:
-            # Hard difficulty: skip if target is guarded and we can't break it
             if diff == 'hard' and opp_card.get('guard_remaining', 0) > 0 and card['atk'] <= opp_card['def']:
                 continue
             attacks.append((ai, ai))
         elif _has(card, 'side_aoe'):
-            # Sweep cards can't hit the player even if field is empty
             continue
         elif first_turn_protected:
-            # No direct attacks on first turn
             continue
-        elif has_direct_ability(card) or enemy_empty:
-            # Either explicit direct-attack ability, or enemy field is completely empty
+        else:
+            # Opposing slot is empty (or has_direct ability) → direct attack allowed
             attacks.append((ai, None))
-        # else: skip — no valid attack
     return attacks
 
 def bot_execute_turn(room_code):
