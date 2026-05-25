@@ -99,7 +99,7 @@ CARDLIST = [
         {"id":"amegma_free_attack","name":"Free Aim","desc":"Can attack any enemy card on the field, ignoring slot lock."},
         {"id":"amegma_block_break","name":"Block Crush","desc":"When attacking a card with block: removes all block but deals no damage that attack."}]},
     {"name":"Ice",          "atk":1,"def":3, "specials":[
-        {"id":"ice_counter_freeze","name":"Ice Shield","desc":"When hit: 50% chance to freeze the attacker until your next turn ends."},
+        {"id":"ice_counter_freeze","name":"Ice Shield","desc":"When hit: freezes the attacker so it can't attack next turn."},
         {"id":"frost_breath","name":"Frost Breath","desc":"Active: freeze all enemy cards for 1 turn, but they take 50% less damage for 2 turns."},
         {"id":"ice_cream_ability","name":"Ice Cream","desc":"Active: give a card +2 ATK +1 DEF for 2 turns and heal yourself 2 HP. 5-turn cooldown."}]},
     {"name":"Ace",        "atk":5,"def":5, "no_normal_play":True, "specials":[
