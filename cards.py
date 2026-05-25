@@ -62,7 +62,7 @@ CARDLIST = [
         {"id":"aoe_immune","name":"AoE Immune","desc":"Cannot be hit by AoE damage."},
         {"id":"unknown_copy","name":"Mirror Stats","desc":"After 3 turns, gains ATK/DEF of the enemy card opposite to it."}]},
     {"name":"Rewind",       "atk":0,"def":0, "specials":[
-        {"id":"rewind_quick","name":"Time Steal","desc":"Quick effect: destroy to take your turn. Take 3 damage, can't draw/deal damage. Once per 2 turns."},
+        {"id":"rewind_quick","name":"Time Steal","desc":"Quick Effect (opponent's turn): destroy Rewind to steal the turn. Take 3 damage, no draw, can't deal damage. Once per 2 turns."},
         {"id":"rewind_play","name":"Rewind","desc":"On play: revive last friendly dead card with +2 DEF. Destroyed after 3 turns."}]},
     {"name":"Undying",      "atk":0,"def":1, "specials":[
         {"id":"undying_donut","name":"Donut","desc":"Each turn: give a friendly card +1/+1 (max 2 donuts per card)."}]},
