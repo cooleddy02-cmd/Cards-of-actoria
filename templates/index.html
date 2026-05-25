@@ -1533,15 +1533,15 @@ function renderState(s) {
   document.getElementById('btn-end-turn').disabled = !inAttack;
   document.getElementById('btn-spec-summon').disabled = !(inPlay && s.cards_played < 2);
   const selCard = (inAttack && selectedAttacker!==null) ? s.your_field[selectedAttacker] : null;
-  // Direct attack allowed if:
-  //   - card has explicit wrath_direct ability, OR
-  //   - the enemy field is completely empty (no living cards)
-  // Blocked on first turn. Sweep (side_aoe) can never direct-attack.
-  const oppFieldEmpty = !(s.opp_field || []).some(c => c !== null);
+  // Direct attack allowed per-slot: if the opposing slot directly in front of the
+  // selected attacker is empty, that card can swing at the player. wrath_direct
+  // bypasses this. Sweep (side_aoe) never direct-attacks. Blocked on first turn.
+  const oppSlotEmpty  = !!selCard && selectedAttacker !== null
+                        && !((s.opp_field || [])[selectedAttacker]);
   const hasSweep      = !!selCard && (selCard.specials||[]).some(sp => sp.id==='side_aoe');
   const hasWrath      = !!selCard && (selCard.specials||[]).some(sp => sp.id==='wrath_direct');
   const myFirstTurn   = !!(s.first_turns && s.first_turns[s.your_index]);
-  const canDirect     = !!selCard && !hasSweep && !myFirstTurn && (hasWrath || oppFieldEmpty);
+  const canDirect     = !!selCard && !hasSweep && !myFirstTurn && (hasWrath || oppSlotEmpty);
   document.getElementById('btn-direct').disabled = !canDirect;
 
   // Turn timer display
