@@ -588,10 +588,11 @@
 <!-- ═══ HAND TRAP OVERLAY ═══ -->
 <div class="overlay" id="ht-overlay">
   <h2 style="color:#55aaff">⚡ Quick Effect</h2>
-  <p id="ht-desc">Opponent is acting. Use Clock to cancel?</p>
-  <p style="color:#ffaa44;font-size:.78rem">Clock is discarded · Once per turn</p>
+  <p id="ht-desc">Opponent is acting.</p>
+  <p style="color:#ffaa44;font-size:.78rem">Once per turn</p>
   <div class="btn-row">
-    <button class="btn-blue" onclick="respondQE(true)">Use Clock ❄️</button>
+    <button id="ht-btn-clock"  class="btn-blue" onclick="respondQE('clock')"  style="display:none">Use Clock ❄️</button>
+    <button id="ht-btn-rewind" class="btn-blue" onclick="respondQE('rewind')" style="display:none;background:#aa66ff">Time Steal ⏳ (-3HP)</button>
     <button class="btn-sec"  onclick="respondQE(false)">Pass</button>
   </div>
 </div>
@@ -855,7 +856,7 @@ let selectedDiff = 'easy';
 
 const ACTIVE_ABILITIES = ['circus_bounce','apple_buff','sword_buff','milk_summon','milk_drink',
   'greed_atlas','fisher_pull','fisher_catch','core_dark_star','undying_donut',
-  'sad_send','frost_breath','ice_cream_ability','rewind_quick',
+  'sad_send','frost_breath','ice_cream_ability',
   'atlas_bhh_self_pull','bhole_atlas_summon','atlas_greed_nodraw','angel_emp'];
 
 const SAC_REQS = { 'Ace': 2, 'Lich': 3, 'Omega': 3, 'Void Singularity': 3 };
@@ -1493,9 +1494,11 @@ socket.on('game_start', d => {
 socket.on('state_update', s => {
   gameState = s;
   document.getElementById('ht-overlay').classList.toggle('show', !!s.hand_trap_prompt);
-  if (s.hand_trap_prompt)
-    document.getElementById('ht-desc').textContent =
-      `Opponent is ${s.pending_desc}. Use Clock to cancel?`;
+  if (s.hand_trap_prompt) {
+    document.getElementById('ht-desc').textContent = `Opponent is ${s.pending_desc}.`;
+    document.getElementById('ht-btn-clock').style.display  = s.qe_clock_avail  ? '' : 'none';
+    document.getElementById('ht-btn-rewind').style.display = s.qe_rewind_avail ? '' : 'none';
+  }
   renderState(s);
 });
 
